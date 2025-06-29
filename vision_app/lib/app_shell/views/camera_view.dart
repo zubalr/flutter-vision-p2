@@ -1,6 +1,5 @@
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'dart:async';
 import 'package:vision_app/app_shell/app_shell.dart';
 import 'package:vision_app/camera_module/camera_manager.dart';

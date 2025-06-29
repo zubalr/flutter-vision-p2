@@ -4,7 +4,7 @@ import 'package:vision_app/ml_inference_module/detected_keypoint.dart';
 
 /// Stub implementation for web builds
 class MLServiceNative {
-  bool _isModelLoaded = false;
+  final bool _isModelLoaded = false;
 
   Future<bool> loadModel({bool useGpu = false}) async {
     throw UnsupportedError('Native ML service is not supported on web');

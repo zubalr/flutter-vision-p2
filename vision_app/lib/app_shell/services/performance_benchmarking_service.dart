@@ -82,7 +82,8 @@ class PerformanceBenchmarkingService {
         return MemoryInfo.fromMap(result);
       }
     } catch (e) {
-      debugPrint('Failed to get memory info: $e');
+      // Silently handle missing plugin implementation
+      // This is expected when native plugins are not implemented
     }
 
     // Fallback to basic info
@@ -97,7 +98,8 @@ class PerformanceBenchmarkingService {
         return result?.toDouble() ?? 0.0;
       }
     } catch (e) {
-      debugPrint('Failed to get CPU usage: $e');
+      // Silently handle missing plugin implementation
+      // This is expected when native plugins are not implemented
     }
     return 0.0;
   }
