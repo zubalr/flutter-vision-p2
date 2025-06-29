@@ -1,6 +1,4 @@
 import 'package:camera/camera.dart';
-import 'package:flutter/material.dart';
-import 'dart:typed_data';
 import 'package:vision_app/ml_inference_module/detected_object.dart';
 import 'package:vision_app/ml_inference_module/detected_keypoint.dart';
 import 'package:flutter/foundation.dart';
