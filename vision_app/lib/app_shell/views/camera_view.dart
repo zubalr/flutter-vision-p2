@@ -1,5 +1,7 @@
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'dart:async';
 import 'package:vision_app/app_shell/app_shell.dart';
 import 'package:vision_app/camera_module/camera_manager.dart';
 import 'package:vision_app/ml_inference_module/ml_service.dart';
@@ -41,6 +43,7 @@ class _CameraViewState extends State<CameraView> {
   bool _isCameraInitialized = false;
   bool _isModelLoaded = false;
   String? _errorMessage;
+  Timer? _mockDetectionTimer;
 
   @override
   void initState() {
@@ -54,12 +57,18 @@ class _CameraViewState extends State<CameraView> {
       if (_isCameraInitialized) {
         _isModelLoaded = await widget.mlService.loadModel(useGpu: true);
         if (_isModelLoaded) {
-          widget.cameraManager.startImageStream((image) {
-            if (widget.mlService.isModelLoaded) {
-              _processFrame(image);
-              setState(() {}); // Trigger rebuild to update overlay
-            }
-          });
+          // Check if image streaming is supported
+          if (widget.cameraManager.supportsImageStreaming) {
+            widget.cameraManager.startImageStream((image) {
+              if (widget.mlService.isModelLoaded) {
+                _processFrame(image);
+                setState(() {}); // Trigger rebuild to update overlay
+              }
+            });
+          } else {
+            // For web platform, start mock detection timer
+            _startMockDetectionForWeb();
+          }
         } else {
           _errorMessage = 'Failed to load ML model';
         }
@@ -71,6 +80,40 @@ class _CameraViewState extends State<CameraView> {
       _errorMessage = 'Error during initialization: $e';
     }
     setState(() {}); // Update UI after initialization attempt
+  }
+
+  void _startMockDetectionForWeb() {
+    // For web platform, simulate detections periodically
+    _mockDetectionTimer = Timer.periodic(const Duration(milliseconds: 500), (
+      timer,
+    ) {
+      if (mounted && widget.mlService.isModelLoaded) {
+        _processMockDetections();
+        setState(() {}); // Trigger rebuild to update overlay
+      }
+    });
+  }
+
+  void _processMockDetections() {
+    // For web platform, use the mock detection methods
+    switch (widget.currentMode) {
+      case SolutionMode.objectCounting:
+        final mockDetections = widget.mlService.getMockObjectDetections();
+        widget.objectCountingService.processDetections(mockDetections);
+        break;
+      case SolutionMode.workoutsMonitoring:
+        final keypoints = widget.mlService.getMockKeypointDetections();
+        widget.workoutsMonitoringService.processKeypoints(keypoints);
+        break;
+      case SolutionMode.securityAlarm:
+        final mockDetections = widget.mlService.getMockObjectDetections();
+        widget.securityAlarmService.processDetections(mockDetections);
+        break;
+      case SolutionMode.distanceCalculation:
+        final mockDetections = widget.mlService.getMockObjectDetections();
+        widget.distanceCalculationService.processDetections(mockDetections);
+        break;
+    }
   }
 
   void _processFrame(CameraImage image) {
@@ -216,9 +259,7 @@ class _CameraViewState extends State<CameraView> {
       case SolutionMode.securityAlarm:
         return CustomPaint(
           painter: OverlayPainter.forSecurityAlarm(
-            detectedObjects: widget.mlService.runObjectDetection(
-              widget.cameraManager.controller!.value.previewSize as CameraImage,
-            ),
+            detectedObjects: widget.securityAlarmService.getDetectedObjects(),
             zones: widget.securityAlarmService.getZones(),
             alarmTriggered: widget.securityAlarmService.isAlarmTriggered(),
           ),
@@ -261,9 +302,19 @@ class _CameraViewState extends State<CameraView> {
   }
 
   @override
+  void didUpdateWidget(CameraView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // React to mode changes
+    if (oldWidget.currentMode != widget.currentMode) {
+      // Mode changed, no need to restart everything, just update processing
+      print('Solution mode changed to: ${widget.currentMode}');
+    }
+  }
+
+  @override
   void dispose() {
-    widget.cameraManager.dispose();
-    widget.mlService.dispose();
+    _mockDetectionTimer?.cancel();
+    widget.cameraManager.stopImageStream();
     super.dispose();
   }
 }

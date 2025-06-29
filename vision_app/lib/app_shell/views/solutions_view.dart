@@ -4,11 +4,13 @@ import 'package:vision_app/app_shell/app_shell.dart';
 class SolutionsView extends StatelessWidget {
   final SolutionMode currentMode;
   final Function(SolutionMode) onModeChanged;
+  final VoidCallback? onNavigateToCamera;
 
   const SolutionsView({
     super.key,
     required this.currentMode,
     required this.onModeChanged,
+    this.onNavigateToCamera,
   });
 
   @override
@@ -69,7 +71,16 @@ class SolutionsView extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 16),
       elevation: isSelected ? 8 : 2,
       child: InkWell(
-        onTap: () => onModeChanged(mode),
+        onTap: () {
+          onModeChanged(mode);
+          // Show a snackbar to indicate the mode change
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Switched to $title mode'),
+              duration: const Duration(seconds: 1),
+            ),
+          );
+        },
         borderRadius: BorderRadius.circular(8),
         child: Padding(
           padding: const EdgeInsets.all(16),

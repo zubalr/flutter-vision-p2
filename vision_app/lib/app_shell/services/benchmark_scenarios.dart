@@ -1,20 +1,12 @@
 import 'package:vision_app/app_shell/services/performance_benchmarking_service.dart';
-import 'package:vision_app/ml_inference_module/ml_service.dart';
-import 'package:vision_app/camera_module/camera_manager.dart';
 
 /// Predefined benchmark scenarios for comprehensive testing
 class BenchmarkScenarios {
   final PerformanceBenchmarkingService _benchmarkingService;
-  final MLService _mlService;
-  final CameraManager _cameraManager;
 
   BenchmarkScenarios({
     required PerformanceBenchmarkingService benchmarkingService,
-    required MLService mlService,
-    required CameraManager cameraManager,
-  }) : _benchmarkingService = benchmarkingService,
-       _mlService = mlService,
-       _cameraManager = cameraManager;
+  }) : _benchmarkingService = benchmarkingService;
 
   /// Scenario 1: Object Detection Performance
   Future<void> runObjectDetectionBenchmark() async {
@@ -210,8 +202,11 @@ class BenchmarkScenarios {
       sum += list[i] * list[i];
     }
 
-    // Add a small delay to prevent blocking the UI
-    await Future.delayed(const Duration(microseconds: 100));
+    // Use the sum to prevent compiler optimization
+    if (sum > 0) {
+      // Add a small delay to prevent blocking the UI
+      await Future.delayed(const Duration(microseconds: 100));
+    }
   }
 }
 

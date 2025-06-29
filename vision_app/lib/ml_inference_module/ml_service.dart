@@ -3,8 +3,10 @@ import 'package:vision_app/ml_inference_module/detected_object.dart';
 import 'package:vision_app/ml_inference_module/detected_keypoint.dart';
 import 'package:flutter/foundation.dart';
 
-// Conditional imports for different platforms
-import 'ml_service_native.dart' if (dart.library.js) 'ml_service_web.dart';
+// Conditional imports
+import 'package:vision_app/ml_inference_module/ml_service_native.dart'
+    if (dart.library.js) 'package:vision_app/ml_inference_module/ml_service_native_stub.dart';
+import 'package:vision_app/ml_inference_module/ml_service_web.dart';
 
 class MLService {
   late dynamic _platformService;
@@ -23,12 +25,27 @@ class MLService {
 
   bool get isModelLoaded => _platformService.isModelLoaded;
 
-  List<DetectedObject> runObjectDetection(CameraImage cameraImage) {
+  List<DetectedObject> runObjectDetection(CameraImage? cameraImage) {
     return _platformService.runObjectDetection(cameraImage);
   }
 
-  List<DetectedKeypoint> runKeypointDetection(CameraImage cameraImage) {
+  List<DetectedKeypoint> runKeypointDetection(CameraImage? cameraImage) {
     return _platformService.runKeypointDetection(cameraImage);
+  }
+
+  // Method for getting mock detections without camera image (for web)
+  List<DetectedObject> getMockObjectDetections() {
+    if (kIsWeb) {
+      return _platformService.runObjectDetection(null);
+    }
+    return [];
+  }
+
+  List<DetectedKeypoint> getMockKeypointDetections() {
+    if (kIsWeb) {
+      return _platformService.runKeypointDetection(null);
+    }
+    return [];
   }
 
   void setCanRunInference(bool canRun) {

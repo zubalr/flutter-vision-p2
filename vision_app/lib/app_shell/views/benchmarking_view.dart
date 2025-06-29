@@ -291,8 +291,8 @@ class _BenchmarkingViewState extends State<BenchmarkingView> {
             ),
             if (report.deviceInfo != null) ...[
               const Divider(),
-              _buildMetricRow('Device', report.deviceInfo!.model),
-              _buildMetricRow('Platform', report.deviceInfo!.platform),
+              _buildMetricRow('Device', '${report.deviceInfo!.model}'),
+              _buildMetricRow('Platform', '${report.deviceInfo!.platform}'),
             ],
           ],
         ),

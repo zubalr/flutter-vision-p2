@@ -43,12 +43,9 @@ class _AppShellState extends State<AppShell> {
   int _currentIndex = 0;
   SolutionMode _currentMode = SolutionMode.objectCounting;
 
-  late final List<Widget> _pages;
-
   @override
-  void initState() {
-    super.initState();
-    _pages = [
+  Widget build(BuildContext context) {
+    final pages = [
       CameraView(
         cameraManager: widget.cameraManager,
         mlService: widget.mlService,
@@ -66,12 +63,8 @@ class _AppShellState extends State<AppShell> {
       const SettingsView(),
       const BenchmarkingView(),
     ];
-  }
-
-  @override
-  Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(index: _currentIndex, children: _pages),
+      body: IndexedStack(index: _currentIndex, children: pages),
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         currentIndex: _currentIndex,

@@ -5,6 +5,7 @@ import 'package:vision_app/ml_inference_module/detected_object.dart';
 class SecurityAlarmService {
   List<List<Offset>> _zones = [];
   bool _alarmTriggered = false;
+  List<DetectedObject> _detectedObjects = [];
 
   void setZones(List<List<Offset>> zones) {
     _zones = zones;
@@ -18,7 +19,12 @@ class SecurityAlarmService {
     return _alarmTriggered;
   }
 
+  List<DetectedObject> getDetectedObjects() {
+    return _detectedObjects;
+  }
+
   void processDetections(List<DetectedObject> detections) {
+    _detectedObjects = detections;
     _alarmTriggered = false; // Reset alarm
     for (var zone in _zones) {
       for (var obj in detections) {
