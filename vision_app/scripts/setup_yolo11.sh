@@ -1,10 +1,10 @@
 #!/bin/bash
 
-# YOLO11 Setup Script for Flutter Object Detection App
-# This script downloads and sets up the YOLO11 model for the Flutter app
+# YOLO11 Setup Script for Flutter Vision App
+# Downloads and sets up YOLO11 model for web and mobile platforms
 
-echo "🚀 Setting up YOLO11 for Flutter Object Detection"
-echo "=================================================="
+echo "YOLO11 Setup for Flutter Vision App"
+echo "===================================="
 
 # Check if Python is installed
 if ! command -v python3 &> /dev/null; then

@@ -122,21 +122,49 @@ class TFJSWrapper {
 
       console.log('Attempting to load ONNX model...');
       const modelUrl = 'tfjs_model/model.onnx';
-      
+
       const response = await fetch(modelUrl);
       if (!response.ok) {
-        console.log('ONNX model not found, falling back to TensorFlow.js');
+        console.log(
+          'ONNX model not found at tfjs_model/model.onnx, falling back to TensorFlow.js'
+        );
         return false;
       }
 
+      console.log('ONNX model file found, loading...');
       const arrayBuffer = await response.arrayBuffer();
-      this.session = await ort.InferenceSession.create(arrayBuffer);
+
+      // Configure ONNX session options
+      const sessionOptions = {
+        executionProviders: ['wasm'],
+        logSeverityLevel: 0,
+        logVerbosityLevel: 0,
+      };
+
+      this.session = await ort.InferenceSession.create(
+        arrayBuffer,
+        sessionOptions
+      );
       this.backend = 'onnx';
       this.isLoaded = true;
 
       console.log('ONNX model loaded successfully');
       console.log('Model inputs:', this.session.inputNames);
       console.log('Model outputs:', this.session.outputNames);
+      
+      // Safely access metadata
+      try {
+        if (this.session.inputNames.length > 0) {
+          const inputName = this.session.inputNames[0];
+          console.log('Input shape:', this.session.inputMetadata[inputName]?.dims || 'unknown');
+        }
+        if (this.session.outputNames.length > 0) {
+          const outputName = this.session.outputNames[0];
+          console.log('Output shape:', this.session.outputMetadata[outputName]?.dims || 'unknown');
+        }
+      } catch (metaError) {
+        console.log('Could not access metadata, but model loaded successfully');
+      }
 
       return true;
     } catch (error) {
@@ -149,7 +177,8 @@ class TFJSWrapper {
     try {
       // Load ONNX Runtime Web from CDN
       const script = document.createElement('script');
-      script.src = 'https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js';
+      script.src =
+        'https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js';
       document.head.appendChild(script);
 
       // Wait for script to load
@@ -157,7 +186,7 @@ class TFJSWrapper {
         script.onload = resolve;
         script.onerror = reject;
       });
-      
+
       console.log('ONNX Runtime Web loaded successfully');
     } catch (error) {
       console.error('Failed to load ONNX Runtime:', error);
@@ -173,29 +202,54 @@ class TFJSWrapper {
       // Check if model.json exists
       const response = await fetch(url);
       if (!response.ok) {
-        console.log('TensorFlow.js model not found');
+        console.log('TensorFlow.js model not found at', url);
         return false;
       }
 
+      console.log('TensorFlow.js model file found, loading...');
+
       // Set backend
-      if (useGpu) {
-        await tf.setBackend('webgl');
+      if (useGpu && tf.getBackend() !== 'webgl') {
+        try {
+          await tf.setBackend('webgl');
+          await tf.ready();
+          console.log('Using WebGL backend');
+        } catch (e) {
+          console.log('WebGL not available, falling back to CPU');
+          await tf.setBackend('cpu');
+          await tf.ready();
+        }
       } else {
         await tf.setBackend('cpu');
+        await tf.ready();
+        console.log('Using CPU backend');
       }
 
       // Load the YOLO model
-      this.model = await tf.loadGraphModel(url);
-      this.backend = 'tfjs';
-      this.isLoaded = true;
+      try {
+        this.model = await tf.loadGraphModel(url);
+        this.backend = 'tfjs';
+        this.isLoaded = true;
 
-      console.log('TensorFlow.js model loaded successfully');
-      console.log('Model input shape:', this.model.inputs[0].shape);
-      console.log('Model output shape:', this.model.outputs[0].shape);
+        console.log('TensorFlow.js model loaded successfully');
+        console.log('Model input shape:', this.model.inputs[0].shape);
+        console.log('Model output shape:', this.model.outputs[0].shape);
+        console.log('Backend:', tf.getBackend());
 
-      return true;
+        return true;
+      } catch (loadError) {
+        console.error('Error loading TensorFlow.js model:', loadError);
+        console.log('Model URL:', url);
+        
+        // Try to get more details about the error
+        if (loadError.message) {
+          console.log('Error message:', loadError.message);
+        }
+        
+        return false;
+      }
     } catch (error) {
-      console.log('TensorFlow.js loading failed:', error);
+      console.log('TensorFlow.js setup failed:', error);
       return false;
     }
   }
@@ -227,7 +281,14 @@ class TFJSWrapper {
       return [];
     }
 
+    if (!imageElement) {
+      console.warn('No image element provided for inference');
+      return [];
+    }
+
     try {
+      console.log('Running inference with backend:', this.backend);
+
       if (this.backend === 'onnx') {
         return await this.runONNXInference(imageElement);
       } else if (this.backend === 'tfjs') {
@@ -244,20 +305,59 @@ class TFJSWrapper {
 
   async runONNXInference(imageElement) {
     try {
+      console.log('Starting ONNX inference...');
+      
+      if (!imageElement) {
+        console.error('No image element provided');
+        return [];
+      }
+      
+      console.log('Image element:', imageElement.width, 'x', imageElement.height);
+      
+      if (!this.session) {
+        console.error('ONNX session not initialized');
+        return [];
+      }
+      
+      console.log('Session input names:', this.session.inputNames);
+      console.log('Session output names:', this.session.outputNames);
+      
       // Preprocess image for ONNX
       const inputTensor = this.preprocessImageForONNX(imageElement);
+      if (!inputTensor) {
+        console.error('Failed to create input tensor');
+        return [];
+      }
+      
+      console.log('Input tensor shape:', inputTensor.dims);
+      console.log('Input tensor type:', inputTensor.type);
       
       // Create feeds object
       const feeds = {};
-      feeds[this.session.inputNames[0]] = inputTensor;
-
+      const inputName = this.session.inputNames[0];
+      feeds[inputName] = inputTensor;
+      
+      console.log('Running ONNX session with input:', inputName);
+      
       // Run inference
       const results = await this.session.run(feeds);
+      
+      if (!results) {
+        console.error('ONNX inference returned no results');
+        return [];
+      }
+      
       const outputName = this.session.outputNames[0];
       const predictions = results[outputName];
+      
+      if (!predictions) {
+        console.error('No predictions in results for output:', outputName);
+        return [];
+      }
 
       console.log('ONNX prediction shape:', predictions.dims);
       console.log('ONNX prediction data length:', predictions.data.length);
+      console.log('First few prediction values:', Array.from(predictions.data.slice(0, 10)));
 
       // Post-process YOLO predictions
       const detections = this.postProcessYOLO(
@@ -266,39 +366,71 @@ class TFJSWrapper {
         imageElement.height
       );
 
+      console.log('Post-processed detections:', detections.length);
       return detections;
     } catch (error) {
       console.error('ONNX inference error:', error);
+      console.error('Error stack:', error.stack);
       return [];
     }
   }
 
   preprocessImageForONNX(imageElement) {
-    // Create a canvas for image processing
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    canvas.width = this.inputSize;
-    canvas.height = this.inputSize;
-
-    // Draw and resize image
-    ctx.drawImage(imageElement, 0, 0, this.inputSize, this.inputSize);
-    const imageData = ctx.getImageData(0, 0, this.inputSize, this.inputSize);
-
-    // Convert to Float32Array and normalize
-    const input = new Float32Array(3 * this.inputSize * this.inputSize);
-    for (let i = 0; i < imageData.data.length; i += 4) {
-      const pixel = i / 4;
-      const y = Math.floor(pixel / this.inputSize);
-      const x = pixel % this.inputSize;
+    try {
+      console.log('Preprocessing image for ONNX...');
       
-      // RGB values, normalized to [0, 1]
-      input[0 * this.inputSize * this.inputSize + y * this.inputSize + x] = imageData.data[i] / 255.0;     // R
-      input[1 * this.inputSize * this.inputSize + y * this.inputSize + x] = imageData.data[i + 1] / 255.0; // G
-      input[2 * this.inputSize * this.inputSize + y * this.inputSize + x] = imageData.data[i + 2] / 255.0; // B
-    }
+      if (!imageElement) {
+        console.error('No image element for preprocessing');
+        return null;
+      }
+      
+      // Create a canvas for image processing
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      canvas.width = this.inputSize;
+      canvas.height = this.inputSize;
 
-    // Create ONNX tensor
-    return new ort.Tensor('float32', input, [1, 3, this.inputSize, this.inputSize]);
+      console.log('Canvas created:', canvas.width, 'x', canvas.height);
+      
+      // Draw and resize image
+      ctx.drawImage(imageElement, 0, 0, this.inputSize, this.inputSize);
+      const imageData = ctx.getImageData(0, 0, this.inputSize, this.inputSize);
+      
+      console.log('Image data extracted, length:', imageData.data.length);
+
+      // Convert to Float32Array and normalize
+      const input = new Float32Array(3 * this.inputSize * this.inputSize);
+      for (let i = 0; i < imageData.data.length; i += 4) {
+        const pixel = i / 4;
+        const y = Math.floor(pixel / this.inputSize);
+        const x = pixel % this.inputSize;
+
+        // RGB values, normalized to [0, 1]
+        input[0 * this.inputSize * this.inputSize + y * this.inputSize + x] =
+          imageData.data[i] / 255.0; // R
+        input[1 * this.inputSize * this.inputSize + y * this.inputSize + x] =
+          imageData.data[i + 1] / 255.0; // G
+        input[2 * this.inputSize * this.inputSize + y * this.inputSize + x] =
+          imageData.data[i + 2] / 255.0; // B
+      }
+
+      console.log('Input array created, length:', input.length);
+      console.log('First few input values:', Array.from(input.slice(0, 10)));
+
+      // Create ONNX tensor
+      const tensor = new ort.Tensor('float32', input, [
+        1,
+        3,
+        this.inputSize,
+        this.inputSize,
+      ]);
+      console.log('ONNX tensor created:', tensor.dims);
+      
+      return tensor;
+    } catch (error) {
+      console.error('Error in preprocessImageForONNX:', error);
+      return null;
+    }
   }
 
   async runTensorFlowJSInference(imageElement) {

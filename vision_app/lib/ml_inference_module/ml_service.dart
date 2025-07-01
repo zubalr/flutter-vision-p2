@@ -6,7 +6,8 @@ import 'package:vision_app/ml_inference_module/detected_keypoint.dart';
 // Conditional imports
 import 'package:vision_app/ml_inference_module/ml_service_native.dart'
     if (dart.library.js) 'package:vision_app/ml_inference_module/ml_service_native_stub.dart';
-import 'package:vision_app/ml_inference_module/ml_service_web.dart';
+import 'package:vision_app/ml_inference_module/ml_service_web_stub.dart'
+    if (dart.library.js) 'package:vision_app/ml_inference_module/ml_service_web.dart';
 
 class MLService {
   late dynamic _platformService;

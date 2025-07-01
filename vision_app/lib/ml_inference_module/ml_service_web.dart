@@ -175,14 +175,32 @@ class MLServiceWeb {
       final jsCode = '''
         (function() {
           try {
-            if (window.yoloWrapper && window.yoloWrapper.isLoaded) {
-              const canvas = document.getElementById('inference-canvas');
-              if (canvas) {
-                const detections = window.yoloWrapper.runObjectDetection(canvas);
-                return JSON.stringify(detections || []);
-              }
+            console.log('Checking YOLO wrapper...');
+            if (!window.yoloWrapper) {
+              console.error('YOLO wrapper not found');
+              return '[]';
             }
-            return '[]';
+            
+            if (!window.yoloWrapper.isLoaded) {
+              console.error('YOLO model not loaded');
+              return '[]';
+            }
+            
+            console.log('YOLO wrapper ready, backend:', window.yoloWrapper.backend);
+            
+            const canvas = document.getElementById('inference-canvas');
+            if (!canvas) {
+              console.error('Inference canvas not found');
+              return '[]';
+            }
+            
+            console.log('Canvas found, size:', canvas.width, 'x', canvas.height);
+            
+            // Run inference
+            const detections = window.yoloWrapper.runObjectDetection(canvas);
+            console.log('Inference completed, detections:', detections);
+            
+            return JSON.stringify(detections || []);
           } catch (error) {
             console.error('Error in inference:', error);
             return '[]';
@@ -201,14 +219,15 @@ class MLServiceWeb {
   List<DetectedObject> _parseDetectionsFromJson(String json) {
     try {
       print('Parsing detections JSON: $json');
-      
+
       final detections = <DetectedObject>[];
 
       // Parse real YOLO detections
       if (json != '[]' && json.isNotEmpty && json != '{}') {
         try {
           // Use JavaScript to safely parse and convert the detections
-          final parseCode = '''
+          final parseCode =
+              '''
             (function() {
               try {
                 const detections = JSON.parse('$json');
@@ -236,10 +255,10 @@ class MLServiceWeb {
               }
             })()
           ''';
-          
+
           final convertedJson = evalJS(parseCode) as String? ?? '[]';
           print('Converted detections: $convertedJson');
-          
+
           // Parse the converted detections using Dart
           if (convertedJson != '[]') {
             // Simple manual JSON parsing for the converted format
@@ -262,9 +281,11 @@ class MLServiceWeb {
                       }
                     }
                   }
-                  
-                  if (values.containsKey('left') && values.containsKey('top') && 
-                      values.containsKey('width') && values.containsKey('height')) {
+
+                  if (values.containsKey('left') &&
+                      values.containsKey('top') &&
+                      values.containsKey('width') &&
+                      values.containsKey('height')) {
                     detections.add(
                       DetectedObject(
                         boundingBox: Rect.fromLTWH(
