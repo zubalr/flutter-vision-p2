@@ -80,10 +80,10 @@ def main():
         print("\nNext steps:")
         print("1. Run 'flutter clean' and 'flutter pub get'")
         print("2. Build and run your app")
-        print("3. The app will now use the real YOLO11 model instead of mock detections")
+        print("3. The app will now use the real YOLO11 model for inference")
     else:
         print("\n❌ Failed to download/convert YOLO11 model.")
-        print("The app will continue to work with mock detections.")
+        print("The app requires a real model to function - no mock fallback available.")
 
 if __name__ == "__main__":
     main()

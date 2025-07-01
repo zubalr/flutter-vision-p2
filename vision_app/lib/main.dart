@@ -6,8 +6,7 @@ import 'package:vision_app/app_shell/solutions/solution_manager.dart';
 import 'package:vision_app/camera_module/camera_manager.dart';
 import 'package:vision_app/ml_inference_module/ml_service.dart';
 import 'package:vision_app/solution_object_counting/object_counting_service.dart';
-import 'package:vision_app/solution_workouts_monitoring/workouts_monitoring_service.dart';
-import 'package:vision_app/solution_security_alarm/security_alarm_service.dart';
+// Removed unused solutions
 import 'package:vision_app/solution_distance_calculation/distance_calculation_service.dart';
 
 void main() async {
@@ -21,8 +20,6 @@ void main() async {
   final cameraManager = CameraManager();
   final mlService = MLService();
   final objectCountingService = ObjectCountingService();
-  final workoutsMonitoringService = WorkoutsMonitoringService();
-  final securityAlarmService = SecurityAlarmService();
   final distanceCalculationService = DistanceCalculationService();
 
   runApp(
@@ -32,8 +29,6 @@ void main() async {
       cameraManager: cameraManager,
       mlService: mlService,
       objectCountingService: objectCountingService,
-      workoutsMonitoringService: workoutsMonitoringService,
-      securityAlarmService: securityAlarmService,
       distanceCalculationService: distanceCalculationService,
     ),
   );
@@ -45,8 +40,6 @@ class MyApp extends StatelessWidget {
   final CameraManager cameraManager;
   final MLService mlService;
   final ObjectCountingService objectCountingService;
-  final WorkoutsMonitoringService workoutsMonitoringService;
-  final SecurityAlarmService securityAlarmService;
   final DistanceCalculationService distanceCalculationService;
 
   const MyApp({
@@ -56,8 +49,6 @@ class MyApp extends StatelessWidget {
     required this.cameraManager,
     required this.mlService,
     required this.objectCountingService,
-    required this.workoutsMonitoringService,
-    required this.securityAlarmService,
     required this.distanceCalculationService,
   });
 
@@ -75,8 +66,6 @@ class MyApp extends StatelessWidget {
           cameraManager: cameraManager,
           mlService: mlService,
           objectCountingService: objectCountingService,
-          workoutsMonitoringService: workoutsMonitoringService,
-          securityAlarmService: securityAlarmService,
           distanceCalculationService: distanceCalculationService,
         ),
       ),

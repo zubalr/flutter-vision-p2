@@ -1,120 +1,315 @@
+import 'dart:async';
+import 'dart:js_interop';
+import 'package:web/web.dart' as web;
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
-import 'dart:math';
 import 'package:vision_app/ml_inference_module/detected_object.dart';
 import 'package:vision_app/ml_inference_module/detected_keypoint.dart';
 
-/// Web-compatible ML Service that provides mock inference for demonstration
-/// In a real implementation, this would use TensorFlow.js or WebAssembly
+/// Web-compatible ML Service using TensorFlow.js
 class MLServiceWeb {
   bool _isModelLoaded = false;
   bool _canRunInference = true;
-  final Random _random = Random();
+  late web.HTMLCanvasElement _canvas;
 
-  // Mock model parameters
-  static const int inputSize = 416;
-  static const double confidenceThreshold = 0.5;
+  MLServiceWeb() {
+    _initializeCanvas();
+  }
+
+  void _initializeCanvas() {
+    _canvas = web.document.createElement('canvas') as web.HTMLCanvasElement;
+    _canvas.width = 640;
+    _canvas.height = 640;
+    print(
+      'Canvas initialized for image processing: ${_canvas.width}x${_canvas.height}',
+    );
+  }
 
   Future<bool> loadModel({bool useGpu = false}) async {
-    // Simulate model loading delay
-    await Future.delayed(const Duration(milliseconds: 500));
-    _isModelLoaded = true;
-    print('Mock model loaded successfully for web');
-    return true;
+    try {
+      print('Loading YOLO model for web...');
+
+      // Initialize TensorFlow.js and load model using direct JS calls
+      final result = await _loadYOLOModel(useGpu);
+
+      if (result) {
+        _isModelLoaded = true;
+        print('YOLO model loaded successfully for web inference');
+        return true;
+      } else {
+        _isModelLoaded = false;
+        print('Failed to load YOLO model');
+        return false;
+      }
+    } catch (error) {
+      print('Error loading YOLO model: $error');
+      _isModelLoaded = false;
+      return false;
+    }
+  }
+
+  Future<bool> _loadYOLOModel(bool useGpu) async {
+    // Use direct JavaScript evaluation to load the model
+    try {
+      final jsCode =
+          '''
+        (function() {
+          try {
+            // Initialize YOLO wrapper
+            if (typeof window.yoloWrapper === 'undefined') {
+              window.yoloWrapper = new TFJSWrapper();
+            }
+            
+            // Load the model asynchronously (will auto-detect ONNX or TensorFlow.js)
+            window.yoloWrapper.loadModel(null, $useGpu).then(function(success) {
+              window.modelLoadResult = success;
+              if (success) {
+                console.log('YOLO model loaded successfully via', window.yoloWrapper.backend);
+              }
+            }).catch(function(error) {
+              console.error('Model load error:', error);
+              window.modelLoadResult = false;
+            });
+            
+            return true; // Indicates JS execution started
+          } catch (error) {
+            console.error('Error in model loading:', error);
+            return false;
+          }
+        })()
+      ''';
+
+      evalJS(jsCode);
+
+      // Wait for model loading to complete
+      for (int i = 0; i < 100; i++) {
+        // Wait up to 10 seconds for model loading
+        await Future.delayed(Duration(milliseconds: 100));
+        final checkCode = 'window.modelLoadResult';
+        final result = evalJS(checkCode);
+        final resultStr = result.toString();
+        if (resultStr != 'undefined' && resultStr != 'null') {
+          return resultStr == 'true';
+        }
+      }
+
+      return false;
+    } catch (error) {
+      print('Error in _loadYOLOModel: $error');
+      return false;
+    }
   }
 
   bool get isModelLoaded => _isModelLoaded;
 
-  /// Mock object detection that returns dummy results for web demo
+  /// Object detection using real YOLO inference
   List<DetectedObject> runObjectDetection(CameraImage? cameraImage) {
     if (!_isModelLoaded || !_canRunInference) {
-      print('Model not loaded or inference paused.');
       return [];
     }
 
-    print('Running mock object detection for web');
+    try {
+      print('Running YOLO inference on web...');
 
-    // Return mock detected objects for demonstration with some randomness
-    List<DetectedObject> detectedObjects = [];
+      // For web, capture from video element instead of camera image
+      _captureVideoFrame();
 
-    // Add some variety to make it more realistic
-    final objectTypes = [
-      'person',
-      'chair',
-      'table',
-      'laptop',
-      'bottle',
-      'book',
-    ];
-    final numObjects = _random.nextInt(3) + 1; // 1-3 objects
+      // Run inference using JavaScript
+      final detections = _runYOLOInference();
 
-    for (int i = 0; i < numObjects; i++) {
-      final x = _random.nextDouble() * 300 + 50; // Random x between 50-350
-      final y = _random.nextDouble() * 200 + 50; // Random y between 50-250
-      final width =
-          _random.nextDouble() * 100 + 80; // Random width between 80-180
-      final height =
-          _random.nextDouble() * 120 + 100; // Random height between 100-220
-      final confidence =
-          _random.nextDouble() * 0.4 + 0.6; // Confidence between 0.6-1.0
-      final label = objectTypes[_random.nextInt(objectTypes.length)];
-
-      detectedObjects.add(
-        DetectedObject(
-          boundingBox: Rect.fromLTWH(x, y, width, height),
-          label: label,
-          confidence: confidence,
-        ),
-      );
+      return detections;
+    } catch (error) {
+      print('Error during YOLO object detection: $error');
+      return [];
     }
-
-    return detectedObjects;
   }
 
-  /// Mock keypoint detection that returns dummy results for web demo
+  void _captureVideoFrame() {
+    // Capture current frame from video element to canvas for inference
+    try {
+      final jsCode = '''
+        (function() {
+          try {
+            // Find the video element from camera preview
+            const video = document.querySelector('video');
+            if (!video) {
+              console.warn('No video element found for capture');
+              return false;
+            }
+            
+            // Get or create canvas for inference
+            let canvas = document.getElementById('inference-canvas');
+            if (!canvas) {
+              canvas = document.createElement('canvas');
+              canvas.id = 'inference-canvas';
+              canvas.style.display = 'none'; // Hidden canvas for processing
+              document.body.appendChild(canvas);
+            }
+            
+            const ctx = canvas.getContext('2d');
+            
+            // Set canvas size to match model input (640x640)
+            canvas.width = 640;
+            canvas.height = 640;
+            
+            // Draw video frame to canvas, scaling to fit
+            ctx.drawImage(video, 0, 0, 640, 640);
+            
+            return true;
+          } catch (error) {
+            console.error('Error capturing video frame:', error);
+            return false;
+          }
+        })()
+      ''';
+
+      evalJS(jsCode);
+    } catch (error) {
+      print('Error in _captureVideoFrame: $error');
+    }
+  }
+
+  List<DetectedObject> _runYOLOInference() {
+    try {
+      // Use JavaScript to run inference and get results
+      final jsCode = '''
+        (function() {
+          try {
+            if (window.yoloWrapper && window.yoloWrapper.isLoaded) {
+              const canvas = document.getElementById('inference-canvas');
+              if (canvas) {
+                const detections = window.yoloWrapper.runObjectDetection(canvas);
+                return JSON.stringify(detections || []);
+              }
+            }
+            return '[]';
+          } catch (error) {
+            console.error('Error in inference:', error);
+            return '[]';
+          }
+        })()
+      ''';
+
+      final resultJson = evalJS(jsCode) as String? ?? '[]';
+      return _parseDetectionsFromJson(resultJson);
+    } catch (error) {
+      print('Error in _runYOLOInference: $error');
+      return [];
+    }
+  }
+
+  List<DetectedObject> _parseDetectionsFromJson(String json) {
+    try {
+      print('Parsing detections JSON: $json');
+      
+      final detections = <DetectedObject>[];
+
+      // Parse real YOLO detections
+      if (json != '[]' && json.isNotEmpty && json != '{}') {
+        try {
+          // Use JavaScript to safely parse and convert the detections
+          final parseCode = '''
+            (function() {
+              try {
+                const detections = JSON.parse('$json');
+                const converted = [];
+                
+                if (Array.isArray(detections)) {
+                  for (const detection of detections) {
+                    if (detection.boundingBox && detection.confidence > 0.3) {
+                      converted.push({
+                        left: Math.round(detection.boundingBox.left || 0),
+                        top: Math.round(detection.boundingBox.top || 0),
+                        width: Math.round(detection.boundingBox.width || 0),
+                        height: Math.round(detection.boundingBox.height || 0),
+                        confidence: detection.confidence || 0.0,
+                        label: detection.className || 'object'
+                      });
+                    }
+                  }
+                }
+                
+                return JSON.stringify(converted);
+              } catch (error) {
+                console.error('Error parsing detections:', error);
+                return '[]';
+              }
+            })()
+          ''';
+          
+          final convertedJson = evalJS(parseCode) as String? ?? '[]';
+          print('Converted detections: $convertedJson');
+          
+          // Parse the converted detections using Dart
+          if (convertedJson != '[]') {
+            // Simple manual JSON parsing for the converted format
+            final cleanJson = convertedJson.replaceAll(RegExp(r'[\[\]{}]'), '');
+            if (cleanJson.isNotEmpty) {
+              final parts = cleanJson.split('},{');
+              for (String part in parts) {
+                try {
+                  final values = <String, dynamic>{};
+                  final pairs = part.split(',');
+                  for (String pair in pairs) {
+                    final keyValue = pair.split(':');
+                    if (keyValue.length == 2) {
+                      final key = keyValue[0].replaceAll('"', '').trim();
+                      final value = keyValue[1].replaceAll('"', '').trim();
+                      if (key == 'label') {
+                        values[key] = value;
+                      } else {
+                        values[key] = double.tryParse(value) ?? 0.0;
+                      }
+                    }
+                  }
+                  
+                  if (values.containsKey('left') && values.containsKey('top') && 
+                      values.containsKey('width') && values.containsKey('height')) {
+                    detections.add(
+                      DetectedObject(
+                        boundingBox: Rect.fromLTWH(
+                          values['left']?.toDouble() ?? 0.0,
+                          values['top']?.toDouble() ?? 0.0,
+                          values['width']?.toDouble() ?? 0.0,
+                          values['height']?.toDouble() ?? 0.0,
+                        ),
+                        label: values['label']?.toString() ?? 'object',
+                        confidence: values['confidence']?.toDouble() ?? 0.0,
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  print('Error parsing detection part: $e');
+                }
+              }
+            }
+          }
+        } catch (e) {
+          print('Error in detection parsing: $e');
+        }
+      }
+
+      print('Parsed ${detections.length} real detections');
+      return detections;
+    } catch (error) {
+      print('Error parsing detections: $error');
+      return [];
+    }
+  }
+
+  /// Keypoint detection (not implemented for YOLO)
   List<DetectedKeypoint> runKeypointDetection(CameraImage? cameraImage) {
     if (!_isModelLoaded || !_canRunInference) {
-      print('Model not loaded or inference paused.');
       return [];
     }
 
-    print('Running mock keypoint detection for web');
-
-    // Return mock keypoints for demonstration with some randomness
-    List<DetectedKeypoint> detectedKeypoints = [];
-
-    // Create mock human pose keypoints with slight variations
-    final baseX = 175 + (_random.nextDouble() * 20 - 10); // Add some jitter
-    final baseY = 120 + (_random.nextDouble() * 20 - 10);
-
-    final keypointLabels = [
-      'nose',
-      'left_eye',
-      'right_eye',
-      'neck',
-      'left_shoulder',
-      'right_shoulder',
-    ];
-    final positions = [
-      Offset(baseX, baseY), // nose
-      Offset(baseX - 10, baseY + 10), // left_eye
-      Offset(baseX + 10, baseY + 10), // right_eye
-      Offset(baseX, baseY + 40), // neck
-      Offset(baseX - 25, baseY + 60), // left_shoulder
-      Offset(baseX + 25, baseY + 60), // right_shoulder
-    ];
-
-    for (int i = 0; i < keypointLabels.length; i++) {
-      detectedKeypoints.add(
-        DetectedKeypoint(
-          point: positions[i],
-          label: keypointLabels[i],
-          score: 0.85 + _random.nextDouble() * 0.15, // Score between 0.85-1.0
-        ),
-      );
+    if (cameraImage == null) {
+      return [];
     }
 
-    return detectedKeypoints;
+    // YOLO models typically don't do keypoint detection
+    print('Keypoint detection not implemented for YOLO model');
+    return [];
   }
 
   void setCanRunInference(bool canRun) {
@@ -122,6 +317,23 @@ class MLServiceWeb {
   }
 
   void dispose() {
-    // Nothing to dispose for web mock implementation
+    try {
+      // Clean up resources
+      final jsCode = '''
+        if (window.yoloWrapper) {
+          window.yoloWrapper.dispose();
+          window.yoloWrapper = null;
+        }
+      ''';
+      evalJS(jsCode);
+    } catch (error) {
+      print('Error disposing YOLO wrapper: $error');
+    }
+
+    _isModelLoaded = false;
   }
 }
+
+/// Helper function to evaluate JavaScript code
+@JS('eval')
+external JSAny evalJS(String code);

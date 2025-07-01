@@ -1,0 +1,12 @@
+{
+  "model_name": "yolo11n",
+  "input_size": [
+    640,
+    640
+  ],
+  "num_classes": 80,
+  "exports": {
+    "onnx": "yolo11n.onnx"
+  },
+  "created_at": "Tue Jul  1 11:00:54 +03 2025"
+}

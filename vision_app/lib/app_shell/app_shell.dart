@@ -6,14 +6,11 @@ import 'package:vision_app/app_shell/views/benchmarking_view.dart';
 import 'package:vision_app/camera_module/camera_manager.dart';
 import 'package:vision_app/ml_inference_module/ml_service.dart';
 import 'package:vision_app/solution_object_counting/object_counting_service.dart';
-import 'package:vision_app/solution_workouts_monitoring/workouts_monitoring_service.dart';
-import 'package:vision_app/solution_security_alarm/security_alarm_service.dart';
+// Removed unused solutions
 import 'package:vision_app/solution_distance_calculation/distance_calculation_service.dart';
 
 enum SolutionMode {
   objectCounting,
-  workoutsMonitoring,
-  securityAlarm,
   distanceCalculation,
 }
 
@@ -21,8 +18,6 @@ class AppShell extends StatefulWidget {
   final CameraManager cameraManager;
   final MLService mlService;
   final ObjectCountingService objectCountingService;
-  final WorkoutsMonitoringService workoutsMonitoringService;
-  final SecurityAlarmService securityAlarmService;
   final DistanceCalculationService distanceCalculationService;
 
   const AppShell({
@@ -30,8 +25,6 @@ class AppShell extends StatefulWidget {
     required this.cameraManager,
     required this.mlService,
     required this.objectCountingService,
-    required this.workoutsMonitoringService,
-    required this.securityAlarmService,
     required this.distanceCalculationService,
   });
 
@@ -50,8 +43,6 @@ class _AppShellState extends State<AppShell> {
         cameraManager: widget.cameraManager,
         mlService: widget.mlService,
         objectCountingService: widget.objectCountingService,
-        workoutsMonitoringService: widget.workoutsMonitoringService,
-        securityAlarmService: widget.securityAlarmService,
         distanceCalculationService: widget.distanceCalculationService,
         currentMode: _currentMode,
         onModeChanged: (mode) => setState(() => _currentMode = mode),

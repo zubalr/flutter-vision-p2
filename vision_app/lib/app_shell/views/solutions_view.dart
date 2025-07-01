@@ -30,22 +30,6 @@ class SolutionsView extends StatelessWidget {
           ),
           _buildSolutionCard(
             context,
-            SolutionMode.workoutsMonitoring,
-            'Workouts Monitoring',
-            'Track exercise repetitions and form',
-            Icons.fitness_center,
-            Colors.green,
-          ),
-          _buildSolutionCard(
-            context,
-            SolutionMode.securityAlarm,
-            'Security Alarm',
-            'Monitor restricted zones and trigger alerts',
-            Icons.security,
-            Colors.red,
-          ),
-          _buildSolutionCard(
-            context,
             SolutionMode.distanceCalculation,
             'Distance Calculation',
             'Measure distances between objects',

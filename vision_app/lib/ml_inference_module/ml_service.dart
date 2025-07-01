@@ -1,7 +1,7 @@
 import 'package:camera/camera.dart';
+import 'package:flutter/foundation.dart';
 import 'package:vision_app/ml_inference_module/detected_object.dart';
 import 'package:vision_app/ml_inference_module/detected_keypoint.dart';
-import 'package:flutter/foundation.dart';
 
 // Conditional imports
 import 'package:vision_app/ml_inference_module/ml_service_native.dart'
@@ -31,31 +31,6 @@ class MLService {
 
   List<DetectedKeypoint> runKeypointDetection(CameraImage? cameraImage) {
     return _platformService.runKeypointDetection(cameraImage);
-  }
-
-  // Method for getting mock detections - ONLY FOR WEB DEMO
-  List<DetectedObject> getMockObjectDetections() {
-    if (kIsWeb) {
-      // Web platform uses mock detections for demo
-      return _platformService.runObjectDetection(null);
-    } else {
-      // Native platforms require real TensorFlow Lite models
-      print('WARNING: Mock detections not available on native platforms');
-      print('Please download real YOLO11 model: ./scripts/setup_yolo11.sh');
-      return [];
-    }
-  }
-
-  List<DetectedKeypoint> getMockKeypointDetections() {
-    if (kIsWeb) {
-      // Web platform uses mock detections for demo
-      return _platformService.runKeypointDetection(null);
-    } else {
-      // Native platforms require real pose estimation models
-      print('WARNING: Mock keypoints not available on native platforms');
-      print('Please download YOLO11-pose model for keypoint detection');
-      return [];
-    }
   }
 
   void setCanRunInference(bool canRun) {

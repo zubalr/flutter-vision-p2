@@ -1,13 +1,13 @@
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'dart:async';
 import 'package:vision_app/app_shell/app_shell.dart';
 import 'package:vision_app/camera_module/camera_manager.dart';
 import 'package:vision_app/ml_inference_module/ml_service.dart';
 import 'package:vision_app/ui_overlay_module/overlay_painter.dart';
 import 'package:vision_app/solution_object_counting/object_counting_service.dart';
-import 'package:vision_app/solution_workouts_monitoring/workouts_monitoring_service.dart';
-import 'package:vision_app/solution_security_alarm/security_alarm_service.dart';
+// Removed unused solutions
 import 'package:vision_app/solution_distance_calculation/distance_calculation_service.dart';
 import 'package:vision_app/ui_overlay_module/drawing_painter.dart';
 
@@ -15,8 +15,6 @@ class CameraView extends StatefulWidget {
   final CameraManager cameraManager;
   final MLService mlService;
   final ObjectCountingService objectCountingService;
-  final WorkoutsMonitoringService workoutsMonitoringService;
-  final SecurityAlarmService securityAlarmService;
   final DistanceCalculationService distanceCalculationService;
   final SolutionMode currentMode;
   final Function(SolutionMode) onModeChanged;
@@ -26,8 +24,6 @@ class CameraView extends StatefulWidget {
     required this.cameraManager,
     required this.mlService,
     required this.objectCountingService,
-    required this.workoutsMonitoringService,
-    required this.securityAlarmService,
     required this.distanceCalculationService,
     required this.currentMode,
     required this.onModeChanged,
@@ -42,7 +38,7 @@ class _CameraViewState extends State<CameraView> {
   bool _isCameraInitialized = false;
   bool _isModelLoaded = false;
   String? _errorMessage;
-  Timer? _mockDetectionTimer;
+  Timer? _inferenceTimer;
 
   @override
   void initState() {
@@ -65,8 +61,9 @@ class _CameraViewState extends State<CameraView> {
               }
             });
           } else {
-            // For web platform, start mock detection timer
-            _startMockDetectionForWeb();
+            // For web, use timer-based inference
+            print('Using timer-based inference for web platform');
+            _startWebInference();
           }
         } else {
           _errorMessage = 'Failed to load ML model';
@@ -81,37 +78,14 @@ class _CameraViewState extends State<CameraView> {
     setState(() {}); // Update UI after initialization attempt
   }
 
-  void _startMockDetectionForWeb() {
-    // For web platform, simulate detections periodically
-    _mockDetectionTimer = Timer.periodic(const Duration(milliseconds: 500), (
-      timer,
-    ) {
-      if (mounted && widget.mlService.isModelLoaded) {
-        _processMockDetections();
-        setState(() {}); // Trigger rebuild to update overlay
-      }
-    });
-  }
-
-  void _processMockDetections() {
-    // For web platform, use the mock detection methods
-    switch (widget.currentMode) {
-      case SolutionMode.objectCounting:
-        final mockDetections = widget.mlService.getMockObjectDetections();
-        widget.objectCountingService.processDetections(mockDetections);
-        break;
-      case SolutionMode.workoutsMonitoring:
-        final keypoints = widget.mlService.getMockKeypointDetections();
-        widget.workoutsMonitoringService.processKeypoints(keypoints);
-        break;
-      case SolutionMode.securityAlarm:
-        final mockDetections = widget.mlService.getMockObjectDetections();
-        widget.securityAlarmService.processDetections(mockDetections);
-        break;
-      case SolutionMode.distanceCalculation:
-        final mockDetections = widget.mlService.getMockObjectDetections();
-        widget.distanceCalculationService.processDetections(mockDetections);
-        break;
+  void _startWebInference() {
+    if (kIsWeb) {
+      _inferenceTimer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
+        if (widget.mlService.isModelLoaded) {
+          _processWebFrame();
+          setState(() {}); // Trigger rebuild to update overlay
+        }
+      });
     }
   }
 
@@ -121,16 +95,21 @@ class _CameraViewState extends State<CameraView> {
         final detections = widget.mlService.runObjectDetection(image);
         widget.objectCountingService.processDetections(detections);
         break;
-      case SolutionMode.workoutsMonitoring:
-        final keypoints = widget.mlService.runKeypointDetection(image);
-        widget.workoutsMonitoringService.processKeypoints(keypoints);
-        break;
-      case SolutionMode.securityAlarm:
-        final detections = widget.mlService.runObjectDetection(image);
-        widget.securityAlarmService.processDetections(detections);
-        break;
       case SolutionMode.distanceCalculation:
         final detections = widget.mlService.runObjectDetection(image);
+        widget.distanceCalculationService.processDetections(detections);
+        break;
+    }
+  }
+
+  void _processWebFrame() {
+    switch (widget.currentMode) {
+      case SolutionMode.objectCounting:
+        final detections = widget.mlService.runObjectDetection(null);
+        widget.objectCountingService.processDetections(detections);
+        break;
+      case SolutionMode.distanceCalculation:
+        final detections = widget.mlService.runObjectDetection(null);
         widget.distanceCalculationService.processDetections(detections);
         break;
     }
@@ -225,11 +204,6 @@ class _CameraViewState extends State<CameraView> {
           ]);
         }
         break;
-      case SolutionMode.securityAlarm:
-        if (_points.length >= 3) {
-          widget.securityAlarmService.setZones([_points]);
-        }
-        break;
       default:
         break;
     }
@@ -243,24 +217,6 @@ class _CameraViewState extends State<CameraView> {
             detectedObjects: widget.objectCountingService.getDetectedObjects(),
             countingLine: widget.objectCountingService.getCountingLine(),
             objectCount: widget.objectCountingService.getObjectCount(),
-          ),
-          child: Container(),
-        );
-      case SolutionMode.workoutsMonitoring:
-        return CustomPaint(
-          painter: OverlayPainter.forWorkouts(
-            detectedKeypoints: widget.workoutsMonitoringService
-                .getDetectedKeypoints(),
-            repCount: widget.workoutsMonitoringService.getRepCount(),
-          ),
-          child: Container(),
-        );
-      case SolutionMode.securityAlarm:
-        return CustomPaint(
-          painter: OverlayPainter.forSecurityAlarm(
-            detectedObjects: widget.securityAlarmService.getDetectedObjects(),
-            zones: widget.securityAlarmService.getZones(),
-            alarmTriggered: widget.securityAlarmService.isAlarmTriggered(),
           ),
           child: Container(),
         );
@@ -281,7 +237,7 @@ class _CameraViewState extends State<CameraView> {
       painter: DrawingPainter(
         points: _points,
         isDrawing: _points.isNotEmpty,
-        isPolygon: widget.currentMode == SolutionMode.securityAlarm,
+        isPolygon: false, // Only object counting uses lines, not polygons
       ),
       child: Container(),
     );
@@ -291,10 +247,6 @@ class _CameraViewState extends State<CameraView> {
     switch (widget.currentMode) {
       case SolutionMode.objectCounting:
         return 'Object Counting';
-      case SolutionMode.workoutsMonitoring:
-        return 'Workouts Monitoring';
-      case SolutionMode.securityAlarm:
-        return 'Security Alarm';
       case SolutionMode.distanceCalculation:
         return 'Distance Calculation';
     }
@@ -312,8 +264,8 @@ class _CameraViewState extends State<CameraView> {
 
   @override
   void dispose() {
-    _mockDetectionTimer?.cancel();
     widget.cameraManager.stopImageStream();
+    _inferenceTimer?.cancel();
     super.dispose();
   }
 }

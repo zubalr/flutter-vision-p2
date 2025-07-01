@@ -1,0 +1,146 @@
+{
+  "format": "graph-model",
+  "generatedBy": "1.15.0",
+  "convertedBy": "TensorFlow.js Converter v3.18.0",
+  "signature": {
+    "inputs": {
+      "input_0": {
+        "name": "input_0:0",
+        "dtype": "DT_FLOAT",
+        "tensorShape": {
+          "dim": [
+            {
+              "size": "1"
+            },
+            {
+              "size": "3"
+            },
+            {
+              "size": "640"
+            },
+            {
+              "size": "640"
+            }
+          ]
+        }
+      }
+    },
+    "outputs": {
+      "output_0": {
+        "name": "output_0:0",
+        "dtype": "DT_FLOAT",
+        "tensorShape": {
+          "dim": [
+            {
+              "size": "1"
+            },
+            {
+              "size": "84"
+            },
+            {
+              "size": "8400"
+            }
+          ]
+        }
+      }
+    }
+  },
+  "modelTopology": {
+    "node": [
+      {
+        "name": "input_0",
+        "op": "Placeholder",
+        "attr": {
+          "dtype": {
+            "type": "DT_FLOAT"
+          },
+          "shape": {
+            "shape": {
+              "dim": [
+                {
+                  "size": "1"
+                },
+                {
+                  "size": "3"
+                },
+                {
+                  "size": "640"
+                },
+                {
+                  "size": "640"
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "name": "conv2d",
+        "op": "Conv2D",
+        "input": [
+          "input_0",
+          "conv2d/kernel"
+        ],
+        "attr": {
+          "T": {
+            "type": "DT_FLOAT"
+          },
+          "strides": {
+            "list": {
+              "i": [
+                "1",
+                "1",
+                "1",
+                "1"
+              ]
+            }
+          },
+          "padding": {
+            "s": "SAME"
+          },
+          "data_format": {
+            "s": "NCHW"
+          }
+        }
+      },
+      {
+        "name": "output_0",
+        "op": "Identity",
+        "input": [
+          "conv2d"
+        ],
+        "attr": {
+          "T": {
+            "type": "DT_FLOAT"
+          }
+        }
+      }
+    ]
+  },
+  "weightsManifest": [
+    {
+      "paths": [
+        "group1-shard1of1.bin"
+      ],
+      "weights": [
+        {
+          "name": "conv2d/kernel",
+          "shape": [
+            3,
+            3,
+            3,
+            32
+          ],
+          "dtype": "float32"
+        },
+        {
+          "name": "conv2d/bias",
+          "shape": [
+            32
+          ],
+          "dtype": "float32"
+        }
+      ]
+    }
+  ]
+}

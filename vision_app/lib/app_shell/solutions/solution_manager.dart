@@ -1,8 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:vision_app/app_shell/solutions/base_solution.dart';
 import 'package:vision_app/app_shell/solutions/implementations/object_counting_solution.dart';
-import 'package:vision_app/app_shell/solutions/implementations/workouts_monitoring_solution.dart';
-import 'package:vision_app/app_shell/solutions/implementations/security_alarm_solution.dart';
+
 import 'package:vision_app/app_shell/solutions/implementations/distance_calculation_solution.dart';
 
 /// Manages all AI solutions and provides a unified interface
@@ -18,11 +17,7 @@ class SolutionManager extends ChangeNotifier {
   void _registerBuiltInSolutions() {
     // Register solution factories
     SolutionFactory.register('object_counting', () => ObjectCountingSolution());
-    SolutionFactory.register(
-      'workouts_monitoring',
-      () => WorkoutsMonitoringSolution(),
-    );
-    SolutionFactory.register('security_alarm', () => SecurityAlarmSolution());
+    
     SolutionFactory.register(
       'distance_calculation',
       () => DistanceCalculationSolution(),
@@ -30,8 +25,7 @@ class SolutionManager extends ChangeNotifier {
 
     // Create instances
     _solutions['object_counting'] = ObjectCountingSolution();
-    _solutions['workouts_monitoring'] = WorkoutsMonitoringSolution();
-    _solutions['security_alarm'] = SecurityAlarmSolution();
+    
     _solutions['distance_calculation'] = DistanceCalculationSolution();
 
     // Set default solution

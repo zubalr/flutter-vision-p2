@@ -1,7 +1,9 @@
 # iOS TensorFlow Lite dylib Fix Guide
 
 ## Problem
+
 The app crashes on iOS with the error:
+
 ```
 Library not loaded: @rpath/Runner.debug.dylib
 Referenced from: Runner.app/Runner
@@ -11,6 +13,7 @@ Reason: tried: '/usr/lib/system/introspection/Runner.debug.dylib' (no such file)
 This is a common issue with TensorFlow Lite on iOS related to dynamic library loading and framework embedding.
 
 ## Root Cause
+
 1. **TensorFlow Lite C++ dependencies** not properly linked
 2. **Framework search paths** not configured correctly
 3. **Bitcode enabled** (incompatible with TensorFlow Lite)
@@ -20,6 +23,7 @@ This is a common issue with TensorFlow Lite on iOS related to dynamic library lo
 ## Solution Applied
 
 ### 1. Updated Podfile Configuration
+
 - **Disabled Bitcode**: `ENABLE_BITCODE = 'NO'`
 - **Added C++ linking**: `-lc++` flag
 - **Configured runtime paths**: `@executable_path/Frameworks`, `@loader_path/Frameworks`
@@ -27,13 +31,15 @@ This is a common issue with TensorFlow Lite on iOS related to dynamic library lo
 - **Optimized TensorFlow Lite targets**: Specific build settings for TF Lite
 
 ### 2. Enhanced ML Service Implementation
+
 - **Robust model loading** with iOS-specific optimizations
 - **Metal GPU delegate** for iOS acceleration
 - **Comprehensive error handling** with detailed troubleshooting
-- **No mock detections** - requires real YOLO11 model
+- **Production mode** - requires real YOLO11 model
 - **Input validation** for YOLO11 format compliance
 
 ### 3. Build Configuration
+
 - **iOS deployment target**: 13.0+
 - **Architecture support**: arm64, x86_64 (no i386)
 - **Debug information**: Preserved for TensorFlow Lite
@@ -42,12 +48,14 @@ This is a common issue with TensorFlow Lite on iOS related to dynamic library lo
 ## Quick Fix Commands
 
 ### Option 1: Automated Fix
+
 ```bash
 # Run the comprehensive iOS fix script
 ./scripts/fix_ios_dylib.sh
 ```
 
 ### Option 2: Manual Steps
+
 ```bash
 # 1. Clean everything
 flutter clean
@@ -82,12 +90,14 @@ python scripts/download_yolo11_model.py
 ## Verification Steps
 
 1. **Check model file**:
+
    ```bash
    ls -la assets/yolov11.tflite
    # Should be > 5MB, not 18 bytes
    ```
 
 2. **Verify iOS build**:
+
    ```bash
    flutter build ios --debug --no-codesign
    # Should complete without errors
@@ -102,6 +112,7 @@ python scripts/download_yolo11_model.py
 ## Expected Console Output
 
 ### Successful Model Loading
+
 ```
 Initializing YOLO11 TensorFlow Lite model...
 Configuring for iOS platform...
@@ -115,6 +126,7 @@ GPU acceleration: enabled
 ```
 
 ### Model Loading Failure
+
 ```
 CRITICAL ERROR: Failed to load YOLO11 model
 Error details: Unable to load asset: "yolov11.tflite"
@@ -151,12 +163,14 @@ TROUBLESHOOTING STEPS:
 ## Performance Optimization
 
 ### iOS-Specific Settings
+
 - **Metal GPU acceleration**: Enabled by default
 - **Thread count**: Optimized to 2 for mobile
 - **Precision loss**: Allowed for better performance
 - **Memory management**: Automatic cleanup
 
 ### Expected Performance
+
 - **Model size**: ~6MB (YOLO11 nano)
 - **Inference time**: 30-100ms on modern devices
 - **Memory usage**: ~14MB peak
@@ -165,16 +179,19 @@ TROUBLESHOOTING STEPS:
 ## Key Changes Made
 
 ### 1. Podfile Updates
+
 - Added comprehensive TensorFlow Lite build settings
 - Fixed framework embedding and runtime paths
 - Disabled problematic build optimizations
 
 ### 2. ML Service Enhancements
+
 - iOS-specific Metal GPU delegate configuration
 - Robust error handling and validation
 - Removed dependency on mock detections
 
 ### 3. Build Configuration
+
 - Optimized for TensorFlow Lite compatibility
 - Enhanced debugging and error reporting
 - Proper architecture and deployment settings
