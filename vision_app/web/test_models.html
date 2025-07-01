@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Model Test</title>
+</head>
+<body>
+    <h1>YOLO Model Test</h1>
+    <div id="results"></div>
+    
+    <script>
+        async function testModels() {
+            const results = document.getElementById('results');
+            
+            // Test ONNX model
+            try {
+                const onnxResponse = await fetch('./tfjs_model/model.onnx');
+                results.innerHTML += `<p>ONNX model: ${onnxResponse.ok ? 'Found' : 'Not found'} (${onnxResponse.status})</p>`;
+            } catch (e) {
+                results.innerHTML += `<p>ONNX model: Error - ${e.message}</p>`;
+            }
+            
+            // Test TensorFlow.js model
+            try {
+                const tfjsResponse = await fetch('./tfjs_model/model.json');
+                results.innerHTML += `<p>TensorFlow.js model: ${tfjsResponse.ok ? 'Found' : 'Not found'} (${tfjsResponse.status})</p>`;
+            } catch (e) {
+                results.innerHTML += `<p>TensorFlow.js model: Error - ${e.message}</p>`;
+            }
+            
+            // Test weights
+            try {
+                const weightsResponse = await fetch('./tfjs_model/group1-shard1of1.bin');
+                results.innerHTML += `<p>TensorFlow.js weights: ${weightsResponse.ok ? 'Found' : 'Not found'} (${weightsResponse.status})</p>`;
+            } catch (e) {
+                results.innerHTML += `<p>TensorFlow.js weights: Error - ${e.message}</p>`;
+            }
+        }
+        
+        testModels();
+    </script>
+</body>
+</html>

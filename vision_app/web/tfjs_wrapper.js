@@ -93,14 +93,20 @@ class TFJSWrapper {
   async loadModel(modelUrl = null, useGpu = false) {
     try {
       console.log('Loading YOLO model...');
+      
+      // Check if required libraries are available
+      if (typeof ort === 'undefined' && typeof tf === 'undefined') {
+        console.error('Neither ONNX Runtime nor TensorFlow.js is available');
+        return false;
+      }
 
       // Try ONNX first (more efficient for web)
-      if (await this.loadONNXModel()) {
+      if (typeof ort !== 'undefined' && await this.loadONNXModel()) {
         return true;
       }
 
       // Fallback to TensorFlow.js
-      if (await this.loadTensorFlowJSModel(modelUrl, useGpu)) {
+      if (typeof tf !== 'undefined' && await this.loadTensorFlowJSModel(modelUrl, useGpu)) {
         return true;
       }
 
@@ -116,17 +122,21 @@ class TFJSWrapper {
     try {
       // Check if ONNX.js is available
       if (typeof ort === 'undefined') {
-        console.log('ONNX Runtime Web not available, trying to load...');
-        await this.loadONNXRuntime();
+        console.log('ONNX Runtime Web not available');
+        return false;
       }
+      
+      // Wait a bit for ONNX Runtime to fully initialize
+      await new Promise(resolve => setTimeout(resolve, 100));
 
       console.log('Attempting to load ONNX model...');
-      const modelUrl = 'tfjs_model/model.onnx';
+      const modelUrl = './tfjs_model/model.onnx';
+      console.log('ONNX Model URL:', modelUrl);
 
       const response = await fetch(modelUrl);
       if (!response.ok) {
         console.log(
-          'ONNX model not found at tfjs_model/model.onnx, falling back to TensorFlow.js'
+          `ONNX model not found at ${modelUrl} (status: ${response.status}), falling back to TensorFlow.js`
         );
         return false;
       }
@@ -134,11 +144,12 @@ class TFJSWrapper {
       console.log('ONNX model file found, loading...');
       const arrayBuffer = await response.arrayBuffer();
 
-      // Configure ONNX session options
+      // Configure ONNX session options with better providers
       const sessionOptions = {
-        executionProviders: ['wasm'],
-        logSeverityLevel: 0,
+        executionProviders: ['webgl', 'wasm', 'cpu'],
+        logSeverityLevel: 2, // Reduce logging
         logVerbosityLevel: 0,
+        graphOptimizationLevel: 'all',
       };
 
       this.session = await ort.InferenceSession.create(
@@ -164,6 +175,21 @@ class TFJSWrapper {
         }
       } catch (metaError) {
         console.log('Could not access metadata, but model loaded successfully');
+      }
+
+      // Test inference with dummy data to ensure model works
+      try {
+        console.log('Testing ONNX model with dummy input...');
+        const dummyInput = new Float32Array(1 * 3 * 640 * 640).fill(0.5);
+        const dummyTensor = new ort.Tensor('float32', dummyInput, [1, 3, 640, 640]);
+        const feeds = {};
+        feeds[this.session.inputNames[0]] = dummyTensor;
+        
+        const testResults = await this.session.run(feeds);
+        console.log('ONNX model test successful, output shape:', testResults[this.session.outputNames[0]].dims);
+      } catch (testError) {
+        console.warn('ONNX model test failed:', testError);
+        // Continue anyway, might work with real data
       }
 
       return true;
@@ -197,32 +223,47 @@ class TFJSWrapper {
   async loadTensorFlowJSModel(modelUrl = null, useGpu = false) {
     try {
       console.log('Attempting to load TensorFlow.js model...');
-      const url = modelUrl || 'tfjs_model/model.json';
+      const url = modelUrl || './tfjs_model/model.json';
+      console.log('Model URL:', url);
 
       // Check if model.json exists
       const response = await fetch(url);
       if (!response.ok) {
-        console.log('TensorFlow.js model not found at', url);
+        console.log(`TensorFlow.js model not found at ${url} (status: ${response.status})`);
         return false;
       }
 
       console.log('TensorFlow.js model file found, loading...');
 
-      // Set backend
-      if (useGpu && tf.getBackend() !== 'webgl') {
+      // Set backend with better error handling
+      if (useGpu) {
         try {
           await tf.setBackend('webgl');
           await tf.ready();
-          console.log('Using WebGL backend');
+          console.log('Using WebGL backend for GPU acceleration');
         } catch (e) {
-          console.log('WebGL not available, falling back to CPU');
-          await tf.setBackend('cpu');
-          await tf.ready();
+          console.log('WebGL not available, trying WASM backend');
+          try {
+            await tf.setBackend('wasm');
+            await tf.ready();
+            console.log('Using WASM backend');
+          } catch (wasmError) {
+            console.log('WASM not available, falling back to CPU');
+            await tf.setBackend('cpu');
+            await tf.ready();
+            console.log('Using CPU backend');
+          }
         }
       } else {
-        await tf.setBackend('cpu');
-        await tf.ready();
-        console.log('Using CPU backend');
+        try {
+          await tf.setBackend('wasm');
+          await tf.ready();
+          console.log('Using WASM backend');
+        } catch (wasmError) {
+          await tf.setBackend('cpu');
+          await tf.ready();
+          console.log('Using CPU backend');
+        }
       }
 
       // Load the YOLO model
@@ -235,6 +276,18 @@ class TFJSWrapper {
         console.log('Model input shape:', this.model.inputs[0].shape);
         console.log('Model output shape:', this.model.outputs[0].shape);
         console.log('Backend:', tf.getBackend());
+
+        // Test the model with dummy data
+        try {
+          console.log('Testing TensorFlow.js model...');
+          const dummyInput = tf.zeros([1, 640, 640, 3]);
+          const testOutput = this.model.predict(dummyInput);
+          console.log('TensorFlow.js model test successful, output shape:', testOutput.shape);
+          dummyInput.dispose();
+          testOutput.dispose();
+        } catch (testError) {
+          console.warn('TensorFlow.js model test failed:', testError);
+        }
 
         return true;
       } catch (loadError) {

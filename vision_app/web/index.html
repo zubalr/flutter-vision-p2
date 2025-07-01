@@ -32,12 +32,28 @@
     <title>vision_app</title>
     <link rel="manifest" href="manifest.json" />
 
-    <!-- TensorFlow.js -->
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl@4.10.0/dist/tf-backend-webgl.min.js"></script>
+    <!-- TensorFlow.js with better error handling -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js" 
+            onerror="console.error('Failed to load TensorFlow.js')"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl@4.10.0/dist/tf-backend-webgl.min.js"
+            onerror="console.error('Failed to load TensorFlow.js WebGL backend')"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@4.10.0/dist/tf-backend-wasm.min.js"
+            onerror="console.error('Failed to load TensorFlow.js WASM backend')"></script>
 
     <!-- ONNX Runtime Web (primary inference engine) -->
-    <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.0/dist/ort.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.0/dist/ort.min.js"
+            onerror="console.error('Failed to load ONNX Runtime Web')"></script>
+
+    <script>
+      // Check if libraries loaded successfully
+      window.addEventListener('load', function() {
+        console.log('TensorFlow.js available:', typeof tf !== 'undefined');
+        console.log('ONNX Runtime available:', typeof ort !== 'undefined');
+        if (typeof tf !== 'undefined') {
+          console.log('TensorFlow.js version:', tf.version.tfjs);
+        }
+      });
+    </script>
 
     <script src="tfjs_wrapper.js"></script>
   </head>
