@@ -167,21 +167,48 @@ class _CameraViewState extends State<CameraView> {
         ],
       ),
       body: GestureDetector(
+        onTap: () {
+          // Handle tap for distance calculation
+          if (widget.currentMode == SolutionMode.distanceCalculation) {
+            _handleTapForDistanceCalculation();
+          }
+        },
+        onTapDown: (details) {
+          // Store tap position for distance calculation
+          if (widget.currentMode == SolutionMode.distanceCalculation) {
+            setState(() {
+              _points = [details.localPosition];
+            });
+          }
+        },
+        onSecondaryTap: () {
+          // Right-click to clear selections in distance calculation
+          if (widget.currentMode == SolutionMode.distanceCalculation) {
+            widget.distanceCalculationService.clearSelections();
+            setState(() {});
+          }
+        },
         onPanStart: (details) {
-          setState(() {
-            _points = [details.localPosition];
-          });
+          if (widget.currentMode != SolutionMode.distanceCalculation) {
+            setState(() {
+              _points = [details.localPosition];
+            });
+          }
         },
         onPanUpdate: (details) {
-          setState(() {
-            _points.add(details.localPosition);
-          });
+          if (widget.currentMode != SolutionMode.distanceCalculation) {
+            setState(() {
+              _points.add(details.localPosition);
+            });
+          }
         },
         onPanEnd: (details) {
-          _handleDrawingComplete();
-          setState(() {
-            _points = []; // Clear points after drawing
-          });
+          if (widget.currentMode != SolutionMode.distanceCalculation) {
+            _handleDrawingComplete();
+            setState(() {
+              _points = []; // Clear points after drawing
+            });
+          }
         },
         child: Stack(
           children: [
@@ -209,6 +236,15 @@ class _CameraViewState extends State<CameraView> {
     }
   }
 
+  void _handleTapForDistanceCalculation() {
+    if (_points.isNotEmpty) {
+      widget.distanceCalculationService.selectObjectAt(_points.first);
+      setState(() {
+        _points = []; // Clear the tap position
+      });
+    }
+  }
+
   Widget _buildOverlay() {
     switch (widget.currentMode) {
       case SolutionMode.objectCounting:
@@ -222,10 +258,11 @@ class _CameraViewState extends State<CameraView> {
         );
       case SolutionMode.distanceCalculation:
         return CustomPaint(
-          painter: OverlayPainter.forDistanceCalculation(
-            detectedObjects: widget.distanceCalculationService
-                .getDetectedObjects(),
+          painter: DistanceCalculationOverlayPainter(
+            detectedObjects: widget.distanceCalculationService.getDetectedObjects(),
+            selectedObjects: widget.distanceCalculationService.getSelectedObjects(),
             distances: widget.distanceCalculationService.getDistances(),
+            connectionLines: widget.distanceCalculationService.getConnectionLines(),
           ),
           child: Container(),
         );

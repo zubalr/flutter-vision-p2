@@ -48,7 +48,7 @@ abstract class BaseSolution {
 }
 
 /// Types of drawing interactions
-enum DrawingType { none, line, polygon, rectangle, point }
+enum DrawingType { none, line, polygon, rectangle, point, tap }
 
 /// Data for rendering solution overlays
 abstract class SolutionOverlayData {

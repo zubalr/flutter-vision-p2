@@ -23,10 +23,10 @@ class DistanceCalculationSolution implements BaseSolution {
   Color get color => Colors.orange;
 
   @override
-  bool get supportsDrawing => false;
+  bool get supportsDrawing => true;
 
   @override
-  DrawingType get drawingType => DrawingType.none;
+  DrawingType get drawingType => DrawingType.tap;
 
   @override
   void processDetections(List<DetectedObject> detections) {
@@ -40,12 +40,15 @@ class DistanceCalculationSolution implements BaseSolution {
 
   @override
   void handleDrawingComplete(List<Offset> points) {
-    // No drawing interaction needed
+    // Handle tap interactions for object selection
+    if (points.isNotEmpty) {
+      _service.selectObjectAt(points.first);
+    }
   }
 
   @override
   void reset() {
-    // Reset distance calculation state if needed
+    _service.clearSelections();
   }
 
   @override
@@ -53,7 +56,11 @@ class DistanceCalculationSolution implements BaseSolution {
     return DistanceCalculationOverlayData(
       objects: _service.getDetectedObjects(),
       keypoints: [],
-      customData: {'distances': _service.getDistances()},
+      customData: {
+        'distances': _service.getDistances(),
+        'selectedObjects': _service.getSelectedObjects(),
+        'connectionLines': _service.getConnectionLines(),
+      },
     );
   }
 

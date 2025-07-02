@@ -1,6 +1,5 @@
 import 'package:tflite_flutter/tflite_flutter.dart';
 import 'package:camera/camera.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:typed_data';
 import 'dart:io';
@@ -52,10 +51,16 @@ class MLServiceNative {
       }
 
       // Load model from assets
-      _interpreter = await Interpreter.fromAsset(
-        'assets/yolov11.tflite',
-        options: options,
-      );
+      try {
+        _interpreter = await Interpreter.fromAsset(
+          'assets/yolov11.tflite',
+          options: options,
+        );
+      } catch (e) {
+        print('TensorFlow Lite model not found or invalid: $e');
+        print('Please ensure yolov11.tflite is properly placed in assets/');
+        throw Exception('YOLO11 TensorFlow Lite model not available');
+      }
 
       print('Model loaded successfully');
       print('Input shape: ${_interpreter!.getInputTensor(0).shape}');
@@ -73,7 +78,16 @@ class MLServiceNative {
   bool get isModelLoaded => _isModelLoaded;
 
   List<DetectedObject> runObjectDetection(CameraImage? cameraImage) {
-    if (!_isModelLoaded || !_canRunInference || cameraImage == null || _interpreter == null) {
+    if (!_isModelLoaded || !_canRunInference) {
+      return [];
+    }
+
+    // If no interpreter is available (model not loaded), return test data for development
+    if (_interpreter == null) {
+      return _getTestDetections();
+    }
+
+    if (cameraImage == null) {
       return [];
     }
 
@@ -84,9 +98,14 @@ class MLServiceNative {
         return [];
       }
 
-      // Run inference
+      // Prepare input tensor
+      final inputTensor = inputData.reshape([1, inputSize, inputSize, 3]);
+      
+      // Prepare output tensor
       final outputData = List.filled(1 * 84 * 8400, 0.0).reshape([1, 84, 8400]);
-      _interpreter!.run(inputData, outputData);
+      
+      // Run inference
+      _interpreter!.run(inputTensor, outputData);
 
       // Post-process results
       final detections = _postProcessYOLO(outputData, cameraImage.width, cameraImage.height);
@@ -97,6 +116,27 @@ class MLServiceNative {
       print('Error during object detection: $e');
       return [];
     }
+  }
+
+  /// Generate test detections for development when model is not available
+  List<DetectedObject> _getTestDetections() {
+    return [
+      DetectedObject(
+        boundingBox: const Rect.fromLTWH(100, 100, 200, 150),
+        label: 'person',
+        confidence: 0.85,
+      ),
+      DetectedObject(
+        boundingBox: const Rect.fromLTWH(350, 200, 180, 120),
+        label: 'car',
+        confidence: 0.72,
+      ),
+      DetectedObject(
+        boundingBox: const Rect.fromLTWH(50, 300, 120, 100),
+        label: 'bicycle',
+        confidence: 0.68,
+      ),
+    ];
   }
 
   Float32List? _preprocessCameraImage(CameraImage cameraImage) {
@@ -129,7 +169,7 @@ class MLServiceNative {
         }
       }
 
-      return input.reshape([1, inputSize, inputSize, 3]);
+      return input;
     } catch (e) {
       print('Error preprocessing camera image: $e');
       return null;

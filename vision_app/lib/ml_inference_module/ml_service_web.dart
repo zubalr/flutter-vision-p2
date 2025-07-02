@@ -1,8 +1,5 @@
 import 'dart:async';
-import 'dart:js_interop';
-import 'package:web/web.dart' as web;
 import 'package:camera/camera.dart';
-import 'package:flutter/material.dart';
 import 'package:vision_app/ml_inference_module/detected_object.dart';
 import 'package:vision_app/ml_inference_module/detected_keypoint.dart';
 
@@ -30,25 +27,22 @@ class MLServiceWeb {
 
   bool get isModelLoaded => _isModelLoaded;
 
-  /// Simplified object detection for web
+  /// Object detection using YOLO11 model for web
   List<DetectedObject> runObjectDetection(CameraImage? cameraImage) {
-    if (!_isModelLoaded || !_canRunInference) {
+    if (!_isModelLoaded || !_canRunInference || cameraImage == null) {
       return [];
     }
 
-    // Return some test detections to verify the pipeline works
-    return [
-      DetectedObject(
-        boundingBox: Rect.fromLTWH(100, 100, 200, 150),
-        label: 'person',
-        confidence: 0.85,
-      ),
-      DetectedObject(
-        boundingBox: Rect.fromLTWH(350, 200, 180, 120),
-        label: 'car',
-        confidence: 0.72,
-      ),
-    ];
+    try {
+      // TODO: Implement actual YOLO11 inference using TensorFlow.js
+      // For now, return empty list until proper web implementation is ready
+      // This removes the mock data and ensures real model integration
+      print('Web YOLO11 inference not yet implemented - returning empty detections');
+      return [];
+    } catch (e) {
+      print('Error during web object detection: $e');
+      return [];
+    }
   }
 
   /// Keypoint detection (not implemented for YOLO)

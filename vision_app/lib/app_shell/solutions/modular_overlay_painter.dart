@@ -205,24 +205,104 @@ class ModularOverlayPainter extends CustomPainter {
     Map<String, dynamic> data,
   ) {
     final distances = data['distances'] as Map<String, double>? ?? {};
+    final selectedObjects = data['selectedObjects'] as List<DetectedObject>? ?? [];
+    final connectionLines = data['connectionLines'] as List<Offset>? ?? [];
 
-    int index = 0;
-    for (final entry in distances.entries) {
-      final textPainter = TextPainter(
-        text: TextSpan(
-          text: '${entry.key}: ${entry.value.toStringAsFixed(1)}px',
-          style: const TextStyle(
-            color: Colors.orange,
-            fontSize: 14,
-            backgroundColor: Colors.black54,
-          ),
-        ),
-        textDirection: TextDirection.ltr,
-      );
-      textPainter.layout();
-      textPainter.paint(canvas, Offset(10, 10 + (index * 20)));
-      index++;
+    // Draw connection lines between selected objects
+    if (connectionLines.length >= 2) {
+      final linePaint = Paint()
+        ..color = Colors.orange
+        ..strokeWidth = 3.0
+        ..style = PaintingStyle.stroke;
+
+      for (int i = 0; i < connectionLines.length - 1; i += 2) {
+        canvas.drawLine(connectionLines[i], connectionLines[i + 1], linePaint);
+        
+        // Draw distance text at the midpoint of the line
+        final midPoint = Offset(
+          (connectionLines[i].dx + connectionLines[i + 1].dx) / 2,
+          (connectionLines[i].dy + connectionLines[i + 1].dy) / 2,
+        );
+        
+        // Find the corresponding distance
+        String distanceText = '';
+        for (final entry in distances.entries) {
+          if (!entry.key.endsWith('_pixels')) {
+            distanceText = '${(entry.value * 1000).toStringAsFixed(0)}mm';
+            break;
+          }
+        }
+        
+        if (distanceText.isNotEmpty) {
+          final textPainter = TextPainter(
+            text: TextSpan(
+              text: distanceText,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                backgroundColor: Colors.orange,
+              ),
+            ),
+            textDirection: TextDirection.ltr,
+          );
+          textPainter.layout();
+          
+          // Draw background for better readability
+          final textRect = Rect.fromLTWH(
+            midPoint.dx - textPainter.width / 2 - 4,
+            midPoint.dy - textPainter.height / 2 - 2,
+            textPainter.width + 8,
+            textPainter.height + 4,
+          );
+          canvas.drawRect(textRect, Paint()..color = Colors.orange);
+          
+          textPainter.paint(
+            canvas,
+            Offset(midPoint.dx - textPainter.width / 2, midPoint.dy - textPainter.height / 2),
+          );
+        }
+      }
     }
+
+    // Highlight selected objects
+    final selectedPaint = Paint()
+      ..color = Colors.orange
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 4.0;
+
+    for (final obj in selectedObjects) {
+      canvas.drawRect(obj.boundingBox, selectedPaint);
+      
+      // Draw selection indicator
+      final center = obj.boundingBox.center;
+      canvas.drawCircle(center, 8.0, Paint()..color = Colors.orange);
+      canvas.drawCircle(center, 6.0, Paint()..color = Colors.white);
+    }
+
+    // Draw instructions
+    String instructionText = '';
+    if (selectedObjects.isEmpty) {
+      instructionText = 'Tap on objects to measure distance';
+    } else if (selectedObjects.length == 1) {
+      instructionText = 'Tap on another object to measure distance';
+    } else {
+      instructionText = 'Right-click to clear selection';
+    }
+
+    final instructionPainter = TextPainter(
+      text: TextSpan(
+        text: instructionText,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 16,
+          backgroundColor: Colors.black54,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    );
+    instructionPainter.layout();
+    instructionPainter.paint(canvas, Offset(10, size.height - 30));
   }
 
   @override
