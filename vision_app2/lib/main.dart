@@ -43,18 +43,36 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   void initState() {
     super.initState();
+    _startImageStream();
+  }
+
+  void _startImageStream() {
     final cameraService = Provider.of<CameraService>(context, listen: false);
+    final mlService = Provider.of<MLService>(context, listen: false);
+    
     cameraService.cameraController!.startImageStream((image) {
       if (_timer != null && _timer!.isActive) return;
+      
       _timer = Timer(const Duration(milliseconds: 500), () {
-        final mlService = Provider.of<MLService>(context, listen: false);
-        mlService.predict(image).then((recognitions) {
-          setState(() {
-            _recognitions = recognitions;
-          });
-        });
+        _processImage(image, mlService);
       });
     });
+  }
+
+  void _processImage(CameraImage image, MLService mlService) async {
+    try {
+      print('Processing image: ${image.width}x${image.height}, planes: ${image.planes.length}, format: ${image.format.group}');
+      
+      final recognitions = await mlService.predict(image);
+      
+      if (mounted) {
+        setState(() {
+          _recognitions = recognitions;
+        });
+      }
+    } catch (e) {
+      print('Error processing image: $e');
+    }
   }
 
   @override
