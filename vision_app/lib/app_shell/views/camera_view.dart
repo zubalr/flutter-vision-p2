@@ -48,6 +48,13 @@ class _CameraViewState extends State<CameraView> {
 
   Future<void> _initializeCameraAndML() async {
     try {
+      setState(() {
+        _errorMessage = null;
+      });
+
+      // Add a small delay before initializing camera to prevent crashes
+      await Future.delayed(const Duration(milliseconds: 300));
+
       _isCameraInitialized = await widget.cameraManager.initialize();
       if (_isCameraInitialized) {
         _isModelLoaded = await widget.mlService.loadModel(useGpu: true);
@@ -66,21 +73,30 @@ class _CameraViewState extends State<CameraView> {
             _startWebInference();
           }
         } else {
-          _errorMessage = 'Failed to load ML model';
+          setState(() {
+            _errorMessage = 'Failed to load ML model';
+          });
         }
       } else {
-        _errorMessage =
-            'Failed to initialize camera. Please check permissions.';
+        setState(() {
+          _errorMessage =
+              'Failed to initialize camera. Please check permissions and restart the app.';
+        });
       }
     } catch (e) {
-      _errorMessage = 'Error during initialization: $e';
+      print('Camera initialization error: $e');
+      setState(() {
+        _errorMessage = 'Camera initialization failed: ${e.toString()}';
+      });
     }
     setState(() {}); // Update UI after initialization attempt
   }
 
   void _startWebInference() {
     if (kIsWeb) {
-      _inferenceTimer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
+      _inferenceTimer = Timer.periodic(const Duration(milliseconds: 100), (
+        timer,
+      ) {
         if (widget.mlService.isModelLoaded) {
           _processWebFrame();
           setState(() {}); // Trigger rebuild to update overlay
@@ -259,10 +275,13 @@ class _CameraViewState extends State<CameraView> {
       case SolutionMode.distanceCalculation:
         return CustomPaint(
           painter: DistanceCalculationOverlayPainter(
-            detectedObjects: widget.distanceCalculationService.getDetectedObjects(),
-            selectedObjects: widget.distanceCalculationService.getSelectedObjects(),
+            detectedObjects: widget.distanceCalculationService
+                .getDetectedObjects(),
+            selectedObjects: widget.distanceCalculationService
+                .getSelectedObjects(),
             distances: widget.distanceCalculationService.getDistances(),
-            connectionLines: widget.distanceCalculationService.getConnectionLines(),
+            connectionLines: widget.distanceCalculationService
+                .getConnectionLines(),
           ),
           child: Container(),
         );

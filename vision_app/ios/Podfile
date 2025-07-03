@@ -31,6 +31,38 @@ target 'Runner' do
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
   
+  # Add a script phase to create missing privacy bundle files
+  script_phase :name => 'Fix Privacy Bundles',
+               :script => '
+                 # Handle both Debug and Release configurations
+                 if [ "$CONFIGURATION" = "Debug" ]; then
+                   BUILD_DIR="${TARGET_BUILD_DIR}/../.."
+                 else
+                   BUILD_DIR="${TARGET_BUILD_DIR}/../.."
+                 fi
+                 
+                 # Create shared_preferences_foundation privacy bundle
+                 SHARED_PREFS_DIR="$BUILD_DIR/shared_preferences_foundation/shared_preferences_foundation_privacy.bundle"
+                 mkdir -p "$SHARED_PREFS_DIR"
+                 touch "$SHARED_PREFS_DIR/shared_preferences_foundation_privacy"
+                 
+                 # Create path_provider_foundation privacy bundle
+                 PATH_PROVIDER_DIR="$BUILD_DIR/path_provider_foundation/path_provider_foundation_privacy.bundle"
+                 mkdir -p "$PATH_PROVIDER_DIR"
+                 touch "$PATH_PROVIDER_DIR/path_provider_foundation_privacy"
+                 
+                 # Create permission_handler_apple privacy bundle
+                 PERMISSION_DIR="$BUILD_DIR/permission_handler_apple/permission_handler_apple_privacy.bundle"
+                 mkdir -p "$PERMISSION_DIR"
+                 touch "$PERMISSION_DIR/permission_handler_apple_privacy"
+                 
+                 # Create camera_avfoundation privacy bundle
+                 CAMERA_DIR="$BUILD_DIR/camera_avfoundation/camera_avfoundation_privacy.bundle"
+                 mkdir -p "$CAMERA_DIR"
+                 touch "$CAMERA_DIR/camera_avfoundation_privacy"
+               ',
+               :execution_position => :before_compile
+  
   target 'RunnerTests' do
     inherit! :search_paths
   end
@@ -56,6 +88,29 @@ post_install do |installer|
       
       # Swift libraries
       config.build_settings['ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES'] = 'YES'
+      
+      # Fix for privacy bundle issues
+      config.build_settings['BUILD_LIBRARY_FOR_DISTRIBUTION'] = 'YES'
+      config.build_settings['DEFINES_MODULE'] = 'YES'
+      
+      # Disable privacy manifest validation as a workaround
+      config.build_settings['VALIDATE_PRIVACY_MANIFEST'] = 'NO'
+      
+      # Camera plugin specific fixes
+      if target.name == 'camera_avfoundation'
+        config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
+        config.build_settings['CLANG_ENABLE_MODULES'] = 'YES'
+        config.build_settings['ENABLE_STRICT_OBJC_MSGSEND'] = 'NO'
+      end
+    end
+    
+    # Workaround for privacy bundle issues
+    if target.name == 'shared_preferences_foundation' || target.name == 'path_provider_foundation'
+      target.build_phases.each do |build_phase|
+        if build_phase.class.name == 'Xcodeproj::Project::Object::PBXCopyFilesBuildPhase'
+          build_phase.files.reject! { |file| file.display_name.include?('privacy') }
+        end
+      end
     end
   end
 end

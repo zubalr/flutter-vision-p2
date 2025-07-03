@@ -12,11 +12,15 @@ import 'package:vision_app/solution_distance_calculation/distance_calculation_se
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Add a longer delay to ensure all native plugins are fully initialized
+  await Future.delayed(const Duration(milliseconds: 500));
+
   final settingsService = SettingsService();
   await settingsService.initialize();
 
   final solutionManager = SolutionManager();
 
+  // Initialize services without camera first to avoid early crashes
   final cameraManager = CameraManager();
   final mlService = MLService();
   final objectCountingService = ObjectCountingService();

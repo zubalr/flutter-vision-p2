@@ -13,48 +13,84 @@ class CameraManager {
   Future<bool> initialize({
     ResolutionPreset resolution = ResolutionPreset.medium,
   }) async {
-    _resolutionPreset = resolution;
-    // Request camera permission
-    var status = await Permission.camera.request();
-    if (status.isGranted) {
-      try {
-        _cameras = await availableCameras();
-        if (_cameras.isNotEmpty) {
-          await _selectCamera(0);
-          _isInitialized = true;
-          return true;
-        } else {
-          print('No cameras found.');
+    try {
+      _resolutionPreset = resolution;
+
+      // Add a small delay to ensure native initialization is complete
+      await Future.delayed(const Duration(milliseconds: 200));
+
+      // Request camera permission
+      var status = await Permission.camera.request();
+      if (status.isGranted) {
+        try {
+          // Use a try-catch specifically for availableCameras() which can crash
+          _cameras = await availableCameras();
+          if (_cameras.isNotEmpty) {
+            await _selectCamera(0);
+            _isInitialized = true;
+            return true;
+          } else {
+            print('No cameras found.');
+            return false;
+          }
+        } on CameraException catch (e) {
+          print('Camera initialization error: ${e.description}');
+          return false;
+        } catch (e) {
+          print('Unexpected camera error: $e');
           return false;
         }
-      } on CameraException catch (e) {
-        print('Camera initialization error: ${e.description}');
+      } else if (status.isDenied) {
+        print('Camera permission denied. Please enable it in settings.');
+        return false;
+      } else if (status.isPermanentlyDenied) {
+        print(
+          'Camera permission permanently denied. Please enable it in settings.',
+        );
+        openAppSettings(); // Opens app settings for the user to enable permission
         return false;
       }
-    } else if (status.isDenied) {
-      print('Camera permission denied. Please enable it in settings.');
       return false;
-    } else if (status.isPermanentlyDenied) {
-      print(
-        'Camera permission permanently denied. Please enable it in settings.',
-      );
-      openAppSettings(); // Opens app settings for the user to enable permission
+    } catch (e) {
+      print('Fatal camera initialization error: $e');
+      _isInitialized = false;
       return false;
     }
-    return false;
   }
 
   Future<void> _selectCamera(int index) async {
-    if (_controller != null) {
-      await _controller!.dispose();
+    try {
+      if (_controller != null) {
+        await _controller!.dispose();
+        _controller = null;
+      }
+
+      if (index >= 0 && index < _cameras.length) {
+        _cameraIndex = index;
+        _controller = CameraController(
+          _cameras[_cameraIndex],
+          _resolutionPreset,
+          enableAudio: false,
+        );
+
+        // Add timeout to prevent hanging
+        await _controller!.initialize().timeout(
+          const Duration(seconds: 10),
+          onTimeout: () {
+            throw CameraException('timeout', 'Camera initialization timed out');
+          },
+        );
+      } else {
+        throw CameraException('invalid_index', 'Invalid camera index: $index');
+      }
+    } catch (e) {
+      print('Error selecting camera: $e');
+      if (_controller != null) {
+        await _controller!.dispose();
+        _controller = null;
+      }
+      rethrow;
     }
-    _cameraIndex = index;
-    _controller = CameraController(
-      _cameras[_cameraIndex],
-      _resolutionPreset,
-      enableAudio: false,
-    );
-    await _controller!.initialize();
   }
 
   Future<void> switchCamera() async {

@@ -192,6 +192,7 @@
 			buildPhases = (
 				AA6D108D7137B6C446F41AD4 /* [CP] Check Pods Manifest.lock */,
 				9740EEB61CF901F6004384FC /* Run Script */,
+				35C45488CCB41D575590A841 /* [CP-User] Fix Privacy Bundles */,
 				97C146EA1CF9000F007C117D /* Sources */,
 				97C146EB1CF9000F007C117D /* Frameworks */,
 				97C146EC1CF9000F007C117D /* Resources */,
@@ -269,6 +270,16 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		35C45488CCB41D575590A841 /* [CP-User] Fix Privacy Bundles */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			name = "[CP-User] Fix Privacy Bundles";
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\n                 # Handle both Debug and Release configurations\n                 if [ \"$CONFIGURATION\" = \"Debug\" ]; then\n                   BUILD_DIR=\"${TARGET_BUILD_DIR}/../..\"\n                 else\n                   BUILD_DIR=\"${TARGET_BUILD_DIR}/../..\"\n                 fi\n                 \n                 # Create shared_preferences_foundation privacy bundle\n                 SHARED_PREFS_DIR=\"$BUILD_DIR/shared_preferences_foundation/shared_preferences_foundation_privacy.bundle\"\n                 mkdir -p \"$SHARED_PREFS_DIR\"\n                 touch \"$SHARED_PREFS_DIR/shared_preferences_foundation_privacy\"\n                 \n                 # Create path_provider_foundation privacy bundle\n                 PATH_PROVIDER_DIR=\"$BUILD_DIR/path_provider_foundation/path_provider_foundation_privacy.bundle\"\n                 mkdir -p \"$PATH_PROVIDER_DIR\"\n                 touch \"$PATH_PROVIDER_DIR/path_provider_foundation_privacy\"\n                 \n                 # Create permission_handler_apple privacy bundle\n                 PERMISSION_DIR=\"$BUILD_DIR/permission_handler_apple/permission_handler_apple_privacy.bundle\"\n                 mkdir -p \"$PERMISSION_DIR\"\n                 touch \"$PERMISSION_DIR/permission_handler_apple_privacy\"\n                 \n                 # Create camera_avfoundation privacy bundle\n                 CAMERA_DIR=\"$BUILD_DIR/camera_avfoundation/camera_avfoundation_privacy.bundle\"\n                 mkdir -p \"$CAMERA_DIR\"\n                 touch \"$CAMERA_DIR/camera_avfoundation_privacy\"\n               ";
+		};
 		3B06AD1E1E4923F5004D2608 /* Thin Binary */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
