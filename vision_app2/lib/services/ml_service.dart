@@ -467,108 +467,59 @@ class MLService {
       );
     }
 
-    // Apply proper YOLOv11 postprocessing
-    const double confidenceThreshold = 0.25; // Standard threshold
+    // Standard YOLOv11 postprocessing: apply sigmoid to all outputs, scale to image size
+    double sigmoid(double x) => 1.0 / (1.0 + exp(-x));
+    const double confThreshold = 0.25;
+    List<Map<String, dynamic>> rawDetections = [];
 
     for (int i = 0; i < numAnchors; i++) {
-      // Extract box coordinates - YOLOv11 outputs normalized coordinates [0-1] relative to input size
-      double centerX = batch[0][i];
-      double centerY = batch[1][i];
-      double width = batch[2][i];
-      double height = batch[3][i];
+      // Apply sigmoid to box coordinates
+      double cx = sigmoid(batch[0][i]);
+      double cy = sigmoid(batch[1][i]);
+      double w = sigmoid(batch[2][i]);
+      double h = sigmoid(batch[3][i]);
 
-      // Apply exponential to width/height if they're in log space (common in YOLO)
-      width = exp(width);
-      height = exp(height);
-
-      // Apply sigmoid to center coordinates to get normalized [0-1] values
-      centerX = _sigmoid(centerX);
-      centerY = _sigmoid(centerY);
-
-      // Scale coordinates to input image size (640x640)
-      centerX *= inputSize;
-      centerY *= inputSize;
-      width *= inputSize;
-      height *= inputSize;
-
-      // Find the class with the highest confidence after applying sigmoid
+      // Apply sigmoid to class scores
       double maxConf = 0.0;
-      int maxClassIndex = 0;
+      int maxClass = 0;
       for (int j = 4; j < numFeatures; j++) {
-        final double conf = _sigmoid(
-          batch[j][i],
-        ); // Apply sigmoid to class scores
+        double conf = sigmoid(batch[j][i]);
         if (conf > maxConf) {
           maxConf = conf;
-          maxClassIndex = j - 4;
+          maxClass = j - 4;
         }
       }
 
-      // Apply confidence threshold
-      if (maxConf > confidenceThreshold) {
-        // Debug: Log some detection info for the first few detections
-        if (detections.length < 3) {
-          print(
-            'Detection ${detections.length}: centerX=$centerX, centerY=$centerY, width=$width, height=$height, conf=$maxConf, class=${maxClassIndex < _labels.length ? _labels[maxClassIndex] : 'unknown'}',
-          );
-        }
+      if (maxConf > confThreshold) {
+        // Convert to pixel coordinates
+        double x1 = (cx - w / 2) * imageWidth;
+        double y1 = (cy - h / 2) * imageHeight;
+        double x2 = (cx + w / 2) * imageWidth;
+        double y2 = (cy + h / 2) * imageHeight;
 
-        // Convert from center coordinates to corner coordinates
-        final double x1 = centerX - width / 2;
-        final double y1 = centerY - height / 2;
-        final double x2 = centerX + width / 2;
-        final double y2 = centerY + height / 2;
+        // Clamp to image bounds
+        x1 = x1.clamp(0.0, imageWidth.toDouble());
+        y1 = y1.clamp(0.0, imageHeight.toDouble());
+        x2 = x2.clamp(0.0, imageWidth.toDouble());
+        y2 = y2.clamp(0.0, imageHeight.toDouble());
 
-        // Scale coordinates from model input size (640x640) to actual image size
-        final double scaleX = imageWidth / inputSize;
-        final double scaleY = imageHeight / inputSize;
-
-        final double scaledX1 = x1 * scaleX;
-        final double scaledY1 = y1 * scaleY;
-        final double scaledX2 = x2 * scaleX;
-        final double scaledY2 = y2 * scaleY;
-
-        // Clamp coordinates to image bounds
-        final double clampedX1 = scaledX1.clamp(0, imageWidth.toDouble());
-        final double clampedY1 = scaledY1.clamp(0, imageHeight.toDouble());
-        final double clampedX2 = scaledX2.clamp(0, imageWidth.toDouble());
-        final double clampedY2 = scaledY2.clamp(0, imageHeight.toDouble());
-
-        // Only add detection if box has reasonable size
-        final double boxWidth = clampedX2 - clampedX1;
-        final double boxHeight = clampedY2 - clampedY1;
-
-        if (boxWidth > 5 && boxHeight > 5) {
-          // Minimum box size
-          detections.add({
-            'box': [clampedX1, clampedY1, clampedX2, clampedY2],
-            'tag': maxClassIndex < _labels.length
-                ? _labels[maxClassIndex]
-                : 'unknown',
+        // Only add if box is reasonable
+        if ((x2 - x1) > 5 && (y2 - y1) > 5) {
+          rawDetections.add({
+            'box': [x1, y1, x2, y2],
+            'tag': maxClass < _labels.length ? _labels[maxClass] : 'unknown',
             'confidence': maxConf,
           });
         }
       }
     }
 
-    // Apply Non-Maximum Suppression with standard IoU threshold
-    final result = applyNMS(detections, 0.4);
-
-    if (result.isNotEmpty) {
-      print('Found ${result.length} valid detections after filtering and NMS');
-    } else {
-      print('No valid detections found after postprocessing');
-    }
-
+    // NMS: allow more objects by using a standard threshold
+    final result = applyNMS(rawDetections, 0.45);
+    print('Found ${result.length} valid detections after NMS');
     return result;
   }
 
-  // Sigmoid activation function
-  double _sigmoid(double x) {
-    return 1.0 / (1.0 + exp(-x));
-  }
-
-  // Helper function to transpose a 2D list
   void dispose() {
     _interpreter?.close();
   }
