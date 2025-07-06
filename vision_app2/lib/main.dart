@@ -1,4 +1,3 @@
-
 import 'dart:async';
 
 import 'package:camera/camera.dart';
@@ -49,10 +48,10 @@ class _MyHomePageState extends State<MyHomePage> {
   void _startImageStream() {
     final cameraService = Provider.of<CameraService>(context, listen: false);
     final mlService = Provider.of<MLService>(context, listen: false);
-    
+
     cameraService.cameraController!.startImageStream((image) {
       if (_timer != null && _timer!.isActive) return;
-      
+
       _timer = Timer(const Duration(milliseconds: 500), () {
         _processImage(image, mlService);
       });
@@ -61,10 +60,12 @@ class _MyHomePageState extends State<MyHomePage> {
 
   void _processImage(CameraImage image, MLService mlService) async {
     try {
-      print('Processing image: ${image.width}x${image.height}, planes: ${image.planes.length}, format: ${image.format.group}');
-      
+      print(
+        'Processing image: ${image.width}x${image.height}, planes: ${image.planes.length}, format: ${image.format.group}',
+      );
+
       final recognitions = await mlService.predict(image);
-      
+
       if (mounted) {
         setState(() {
           _recognitions = recognitions;
@@ -89,9 +90,7 @@ class _MyHomePageState extends State<MyHomePage> {
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Object Detection'),
-      ),
+      appBar: AppBar(title: const Text('Object Detection')),
       body: Stack(
         children: [
           CameraPreview(cameraService.cameraController!),

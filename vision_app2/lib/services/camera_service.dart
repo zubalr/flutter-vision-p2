@@ -1,4 +1,3 @@
-
 import 'package:camera/camera.dart';
 
 class CameraService {
@@ -7,9 +6,9 @@ class CameraService {
 
   Future<void> initialize() async {
     if (_cameraController != null) return;
-    
+
     final cameras = await availableCameras();
-    
+
     // For iOS, try bgra8888 first as it's more reliable
     try {
       _cameraController = CameraController(
@@ -25,7 +24,7 @@ class CameraService {
       print('Failed to initialize with BGRA8888: $e');
       _cameraController?.dispose();
     }
-    
+
     // Fallback to YUV420
     try {
       _cameraController = CameraController(
@@ -41,7 +40,7 @@ class CameraService {
       print('Failed to initialize with YUV420: $e');
       _cameraController?.dispose();
     }
-    
+
     // Final fallback without specifying format
     _cameraController = CameraController(
       cameras[0],
