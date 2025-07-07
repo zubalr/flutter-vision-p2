@@ -1,5 +1,4 @@
 import 'dart:typed_data';
-import 'dart:math';
 import 'package:camera/camera.dart';
 import 'package:flutter/services.dart';
 import 'package:tflite_flutter/tflite_flutter.dart';
@@ -443,8 +442,6 @@ class MLService {
     int imageWidth,
     int imageHeight,
   ) {
-    List<Map<String, dynamic>> detections = [];
-
     // YOLOv11 output shape: [1, 84, 8400]
     // 84 = 4 (bbox coords) + 80 (classes)
     final batch = output[0]; // Shape: [84, 8400]
@@ -467,35 +464,63 @@ class MLService {
       );
     }
 
-    // Standard YOLOv11 postprocessing: apply sigmoid to all outputs, scale to image size
-    double sigmoid(double x) => 1.0 / (1.0 + exp(-x));
-    const double confThreshold = 0.25;
+    // YOLOv11 postprocessing - this model outputs very small raw values
+    const double confThreshold = 0.0005; // Even lower threshold
     List<Map<String, dynamic>> rawDetections = [];
 
     for (int i = 0; i < numAnchors; i++) {
-      // Apply sigmoid to box coordinates
-      double cx = sigmoid(batch[0][i]);
-      double cy = sigmoid(batch[1][i]);
-      double w = sigmoid(batch[2][i]);
-      double h = sigmoid(batch[3][i]);
+      // Extract raw coordinates
+      double centerX = batch[0][i];
+      double centerY = batch[1][i];
+      double width = batch[2][i].abs();
+      double height = batch[3][i].abs();
 
-      // Apply sigmoid to class scores
+      // Find class with highest raw score
       double maxConf = 0.0;
       int maxClass = 0;
       for (int j = 4; j < numFeatures; j++) {
-        double conf = sigmoid(batch[j][i]);
+        double conf = batch[j][i];
         if (conf > maxConf) {
           maxConf = conf;
           maxClass = j - 4;
         }
       }
 
+      // Debug first few potential detections
+      if (i < 5) {
+        print('Anchor $i: centerX=$centerX, centerY=$centerY, w=$width, h=$height, maxConf=$maxConf, class=$maxClass');
+      }
+
       if (maxConf > confThreshold) {
-        // Convert to pixel coordinates
-        double x1 = (cx - w / 2) * imageWidth;
-        double y1 = (cy - h / 2) * imageHeight;
-        double x2 = (cx + w / 2) * imageWidth;
-        double y2 = (cy + h / 2) * imageHeight;
+        // This model seems to output very small coordinates - try scaling them up significantly
+        double scaleFactor = 1000.0; // Scale up the tiny coordinates
+        
+        // Scale coordinates to reasonable pixel values
+        double scaledCenterX = (centerX * scaleFactor + 320); // Center around middle of 640
+        double scaledCenterY = (centerY * scaleFactor + 320);
+        double scaledWidth = width * scaleFactor * 100; // Much larger scaling for dimensions
+        double scaledHeight = height * scaleFactor * 100;
+        
+        // Ensure reasonable bounds
+        scaledWidth = scaledWidth.clamp(20.0, 300.0);
+        scaledHeight = scaledHeight.clamp(20.0, 300.0);
+        scaledCenterX = scaledCenterX.clamp(scaledWidth/2, 640 - scaledWidth/2);
+        scaledCenterY = scaledCenterY.clamp(scaledHeight/2, 640 - scaledHeight/2);
+
+        // Convert to corner coordinates
+        double x1 = scaledCenterX - scaledWidth / 2;
+        double y1 = scaledCenterY - scaledHeight / 2;
+        double x2 = scaledCenterX + scaledWidth / 2;
+        double y2 = scaledCenterY + scaledHeight / 2;
+
+        // Scale from 640x640 to actual image size
+        double scaleX = imageWidth / inputSize.toDouble();
+        double scaleY = imageHeight / inputSize.toDouble();
+
+        x1 *= scaleX;
+        y1 *= scaleY;
+        x2 *= scaleX;
+        y2 *= scaleY;
 
         // Clamp to image bounds
         x1 = x1.clamp(0.0, imageWidth.toDouble());
@@ -503,20 +528,35 @@ class MLService {
         x2 = x2.clamp(0.0, imageWidth.toDouble());
         y2 = y2.clamp(0.0, imageHeight.toDouble());
 
-        // Only add if box is reasonable
-        if ((x2 - x1) > 5 && (y2 - y1) > 5) {
+        double boxWidth = x2 - x1;
+        double boxHeight = y2 - y1;
+        
+        if (boxWidth > 10 && boxHeight > 10) {
+          String className = 'unknown';
+          if (maxClass >= 0 && maxClass < _labels.length) {
+            className = _labels[maxClass];
+          }
+          
           rawDetections.add({
             'box': [x1, y1, x2, y2],
-            'tag': maxClass < _labels.length ? _labels[maxClass] : 'unknown',
+            'tag': className,
             'confidence': maxConf,
           });
+          
+          // Debug successful detections
+          if (rawDetections.length <= 10) {
+            print('Detection ${rawDetections.length}: [$x1, $y1, $x2, $y2] ${boxWidth.toInt()}x${boxHeight.toInt()} conf=$maxConf class=$className');
+          }
         }
       }
     }
 
-    // NMS: allow more objects by using a standard threshold
-    final result = applyNMS(rawDetections, 0.45);
+    print('Found ${rawDetections.length} raw detections before NMS');
+    
+    // Apply NMS with moderate threshold
+    final result = applyNMS(rawDetections, 0.4);
     print('Found ${result.length} valid detections after NMS');
+    
     return result;
   }
 
